@@ -1,0 +1,16 @@
+workflows:
+  flutter-workflow:
+    name: Taiz Express Android Workflow
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Set up flutter package get
+        script: |
+          flutter packages pub get
+      - name: Build APK Release
+        script: |
+          flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
