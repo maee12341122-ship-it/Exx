@@ -1,0 +1,25 @@
+name: taiz_express
+description: Taiz Express Flutter app with backend and admin web foundation.
+publish_to: 'none'
+version: 2.2.0+2
+
+environment:
+  sdk: '>=3.7.0 <4.0.0'
+  flutter: '>=3.29.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.5+1
+  flutter_map: ^6.0.0
+  latlong2: ^0.9.0
+  geolocator: ^14.1.2
+  shared_preferences: 2.5.3
+latlong2: ^0.9.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
