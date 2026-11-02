@@ -171,13 +171,14 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                   ],
 
-                  // الخطوة 3: إدخال الاسم والموقع (مع تصحيح نوع الكيبورد للحروف وحفظ الجلسة نهائياً)
+                  // الخطوة 3: إدخال الاسم والموقع (مع تصحيح الكيبورد ليكون نصياً عادياً)
                   if (step == 3) ...[
                     const Text('أدخل بياناتك الشخصية لإتمام التسجيل', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 15),
                     TextField(
                       controller: _nameController,
-                      keyboardType: TextInputType.text, // تم الضبط لوحة المفاتيح للنصوص العادية بدلاً من الأرقام
+                      keyboardType: TextInputType.text, // كيبورد نصي حروف
+                      textCapitalization: TextCapitalization.words,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         labelText: 'الاسم الكامل',
@@ -191,7 +192,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _addressController,
-                      keyboardType: TextInputType.text,
+                      keyboardType: TextInputType.text, // كيبورد نصي حروف
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         labelText: 'العنوان بالتفصيل',
@@ -225,7 +226,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       ),
                       onPressed: () {
                         if (_nameController.text.isNotEmpty && _addressController.text.isNotEmpty) {
-                          // حفظ البيانات في قاعدة البيانات وتثبيت حالة تسجيل الدخول لكي لا يتكرر الطلب
                           appState.saveUserProfileDetails(_nameController.text, _addressController.text);
                           
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -235,7 +235,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                           if (widget.onLoginSuccess != null) {
                             widget.onLoginSuccess!();
                           } else {
-                            Navigator.pop(context, true); // إرجاع قيمة true لتحديث الحالة في الشاشة الرئيسية والوصول للسلة مباشرة
+                            Navigator.pop(context, true);
                           }
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
