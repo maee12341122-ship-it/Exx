@@ -37,7 +37,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // دالة إظهار النافذة المنبثقة حصرياً للعميل في صفحته الرئيسية
   void _checkAndShowPricingDialog(BuildContext context, AppState appState) {
-    // إذا كان المشرف هو من سجل الدخول أو لم يكن هناك عميل مسجل، لا تظهر شيئاً
     if (appState.userProfile == null || appState.isAdminLoggedIn) return;
 
     final customerPhone = appState.userProfile!['phone'];
@@ -111,7 +110,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
 
-    // فحص وعرض النافذة المنبثقة للعميل حصرياً في صفحته
     _checkAndShowPricingDialog(context, appState);
 
     final themeBg = appState.isDarkMode ? const Color(0xFF121212) : Colors.grey[100]!;
@@ -262,6 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // تم تحديث تبويب المتجر الرئيسي ليدعم ميزة السحب للتحديث (RefreshIndicator)
   Widget _buildShopTab(AppState appState, Color cardBg, Color textColor) {
     if (selectedCategory == 'طلبات أخرى') {
       return Padding(
@@ -350,100 +349,113 @@ class _HomeScreenState extends State<HomeScreen> {
       return matchesCategory && matchesSearch;
     }).toList();
 
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          color: appState.isStoreOpen ? Colors.green[800] : Colors.red[800],
-          child: Text(
-            appState.isStoreOpen
-                ? '🟢 نحن مفتوحون الآن (الدوام من ${appState.startHour}:00 ص إلى ${appState.endHour}:00 م)'
-                : '🔴 التطبيق مغلق حالياً (يبدأ الدوام الساعة ${appState.startHour}:00 صباحاً)',
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: TextField(
-            controller: _searchController,
-            style: TextStyle(color: textColor),
-            decoration: InputDecoration(
-              hintText: 'ابحث عن طعام، وجبة، خضار، أو دواء...',
-              hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-              prefixIcon: const Icon(Icons.search, color: Colors.amber),
-              filled: true,
-              fillColor: cardBg,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+    return RefreshIndicator(
+      color: Colors.amber,
+      backgroundColor: cardBg,
+      onRefresh: () async {
+        // سحب الشاشة للأسفل سيقوم بجلب أحدث إعدادات أوقات الدوام والمنتجات من قاعدة البيانات سحابياً
+        await appState.fetchStoreSettings();
+        await appState.fetchProductsFromSupabase();
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(), // ضمان عمل السحب حتى لو المحتوى قصير
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            color: appState.isStoreOpen ? Colors.green[800] : Colors.red[800],
+            child: Text(
+              appState.isStoreOpen
+                  ? '🟢 نحن مفتوحون الآن (الدوام من ${appState.startHour}:00 ص إلى ${appState.endHour}:00 م)'
+                  : '🔴 التطبيق مغلق حالياً (يبدأ الدوام الساعة ${appState.startHour}:00 صباحاً)',
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
-            onChanged: (val) => setState(() {}),
           ),
-        ),
-        _buildCategoriesBar(appState, textColor, cardBg),
-        const SizedBox(height: 10),
-        Expanded(
-          child: filteredProducts.isEmpty
-              ? Center(child: Text('لا توجد نتائج مطابقة للبحث', style: TextStyle(color: textColor)))
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              controller: _searchController,
+              style: TextStyle(color: textColor),
+              decoration: InputDecoration(
+                hintText: 'ابحث عن طعام، وجبة، خضار، أو دواء...',
+                hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, color: Colors.amber),
+                filled: true,
+                fillColor: cardBg,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              ),
+              onChanged: (val) => setState(() {}),
+            ),
+          ),
+          _buildCategoriesBar(appState, textColor, cardBg),
+          const SizedBox(height: 10),
+          filteredProducts.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(50.0),
+                  child: Center(child: Text('لا توجد نتائج مطابقة للبحث', style: TextStyle(color: textColor))),
+                )
               : ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: filteredProducts.length,
-            itemBuilder: (context, index) {
-              final ProductModel product = filteredProducts[index];
-              if (!product.available) return const SizedBox.shrink();
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: filteredProducts.length,
+                  itemBuilder: (context, index) {
+                    final ProductModel product = filteredProducts[index];
+                    if (!product.available) return const SizedBox.shrink();
 
-              int qtyInCart = appState.getProductQuantityInCart(product.id);
+                    int qtyInCart = appState.getProductQuantityInCart(product.id);
 
-              return Card(
-                color: cardBg,
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: ListTile(
-                  title: Text(product.name, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                  subtitle: Text(
-                    '${product.restaurantName} - ${product.price} ر.ي / ${product.unit} (${product.category})',
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                  trailing: qtyInCart == 0
-                      ? ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: appState.isStoreOpen
-                        ? () {
-                      appState.addToCart(CartItemModel(
-                        id: product.id,
-                        name: product.name,
-                        price: product.price,
-                        quantity: 1,
-                        restaurantId: product.restaurantName,
-                        imageUrl: product.imageUrl,
-                      ));
-                    }
-                        : null,
-                    child: const Text('إضافة للسلة', style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold)),
-                  )
-                      : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.amber, size: 20),
-                        onPressed: () => appState.updateQuantity(product.id, -1),
+                    return Card(
+                      color: cardBg,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      child: ListTile(
+                        title: Text(product.name, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                        subtitle: Text(
+                          '${product.restaurantName} - ${product.price} ر.ي / ${product.unit} (${product.category})',
+                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                        ),
+                        trailing: qtyInCart == 0
+                            ? ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.amber,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: appState.isStoreOpen
+                                    ? () {
+                                        appState.addToCart(CartItemModel(
+                                          id: product.id,
+                                          name: product.name,
+                                          price: product.price,
+                                          quantity: 1,
+                                          restaurantId: product.restaurantName,
+                                          imageUrl: product.imageUrl,
+                                        ));
+                                      }
+                                    : null,
+                                child: const Text('إضافة للسلة', style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold)),
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline, color: Colors.amber, size: 20),
+                                    onPressed: () => appState.updateQuantity(product.id, -1),
+                                  ),
+                                  Text('$qtyInCart', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                                  IconButton(
+                                    icon: const Icon(Icons.add_circle_outline, color: Colors.amber, size: 20),
+                                    onPressed: () => appState.updateQuantity(product.id, 1),
+                                  ),
+                                ],
+                              ),
                       ),
-                      Text('$qtyInCart', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline, color: Colors.amber, size: 20),
-                        onPressed: () => appState.updateQuantity(product.id, 1),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -584,7 +596,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('طلب #${order['id']} - الحالة: ${order['status']}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                    // 💬 زر مراسلة الإدارة للعميل
                     IconButton(
                       icon: const Icon(Icons.chat, color: Colors.amber),
                       tooltip: 'مراسلة الإدارة ودعم الطلب',
