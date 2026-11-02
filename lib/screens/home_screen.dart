@@ -34,6 +34,48 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // نافذة تأكيد الخروج بالثيم الأسود والذهبي الفاخر
+  void showExitConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.amber.withOpacity(0.3)),
+          ),
+          title: Row(
+            children: const [
+              Icon(Icons.exit_to_app, color: Colors.amber),
+              SizedBox(width: 10),
+              Text('تأكيد الخروج', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'هل أنت متأكد أنك تريد الخروج من تطبيق تعز إكسبرس؟',
+            style: TextStyle(color: Colors.grey, fontSize: 14),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+              onPressed: () {
+                Navigator.pop(context);
+                // إغلاق التطبيق
+              },
+              child: const Text('نعم', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _checkAndShowPricingDialog(BuildContext context, AppState appState) {
     if (appState.userProfile == null || appState.isAdminLoggedIn) return;
 
@@ -85,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: const Text('موافقة وتأكيد الطلب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                   TextButton(
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
                     onPressed: () {
                       appState.customerCancelOrder(order['id']);
                       Navigator.pop(context);
@@ -121,128 +163,135 @@ class _HomeScreenState extends State<HomeScreen> {
       _buildProfileTab(appState, cardBg, textColor),
     ];
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: themeBg,
-        appBar: AppBar(
-          backgroundColor: cardBg,
-          title: const Text(
-            'تعز إكسبرس – Taiz Express (تعز)',
-            style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.two_wheeler, color: Colors.amber),
-              tooltip: 'لوحة المندوب',
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const CourierScreen()));
-              },
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        showExitConfirmationDialog(context);
+      },
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: themeBg,
+          appBar: AppBar(
+            backgroundColor: cardBg,
+            title: const Text(
+              'تعز إكسبرس – Taiz Express (تعز)',
+              style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            IconButton(
-              icon: const Icon(Icons.admin_panel_settings, color: Colors.amber),
-              tooltip: 'لوحة المشرف',
-              onPressed: () {
-                if (appState.isAdminLoggedIn) {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminScreen()));
-                } else {
-                  final passwordController = TextEditingController();
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      backgroundColor: cardBg,
-                      title: const Text('تسجيل دخول المشرف', style: TextStyle(color: Colors.white, fontSize: 14)),
-                      content: TextField(
-                        controller: passwordController,
-                        obscureText: true,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: const InputDecoration(
-                          hintText: 'أدخل كلمة السر الخاصة بك',
-                          hintStyle: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            bool loginSuccess = appState.loginAdmin(passwordController.text.trim());
-                            if (loginSuccess) {
-                              Navigator.pop(context);
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminScreen()));
-                            } else {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('كلمة السر غير صحيحة!')),
-                              );
-                            }
-                          },
-                          child: const Text('دخول', style: TextStyle(color: Colors.amber)),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              },
-            ),
-          ],
-        ),
-        body: IndexedStack(
-          index: _currentIndex,
-          children: pages,
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            if (index == 1 && appState.userProfile == null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PhoneAuthScreen(
-                    onLoginSuccess: () {
-                      Navigator.pop(context);
-                      setState(() => _currentIndex = 1);
-                    },
-                  ),
-                ),
-              );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('يجب تسجيل الدخول برقم الهاتف للوصول إلى السلة')),
-              );
-              return;
-            }
-            setState(() => _currentIndex = index);
-          },
-          backgroundColor: cardBg,
-          selectedItemColor: Colors.amber,
-          unselectedItemColor: Colors.grey,
-          type: BottomNavigationBarType.fixed,
-          items: [
-            const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
-            BottomNavigationBarItem(
-              icon: Stack(
-                children: [
-                  const Icon(Icons.shopping_cart),
-                  if (appState.totalCartItemsCount > 0)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                        child: Text(
-                          '${appState.totalCartItemsCount}',
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.two_wheeler, color: Colors.amber),
+                tooltip: 'لوحة المندوب',
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const CourierScreen()));
+                },
               ),
-              label: 'السلة',
-            ),
-            const BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'طلباتي'),
-            const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'حسابي'),
-          ],
+              IconButton(
+                icon: const Icon(Icons.admin_panel_settings, color: Colors.amber),
+                tooltip: 'لوحة المشرف',
+                onPressed: () {
+                  if (appState.isAdminLoggedIn) {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminScreen()));
+                  } else {
+                    final passwordController = TextEditingController();
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: cardBg,
+                        title: const Text('تسجيل دخول المشرف', style: TextStyle(color: Colors.white, fontSize: 14)),
+                        content: TextField(
+                          controller: passwordController,
+                          obscureText: true,
+                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          decoration: const InputDecoration(
+                            hintText: 'أدخل كلمة السر الخاصة بك',
+                            hintStyle: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              bool loginSuccess = appState.loginAdmin(passwordController.text.trim());
+                              if (loginSuccess) {
+                                Navigator.pop(context);
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminScreen()));
+                              } else {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('كلمة السر غير صحيحة!')),
+                                );
+                              }
+                            },
+                            child: const Text('دخول', style: TextStyle(color: Colors.amber)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+          body: IndexedStack(
+            index: _currentIndex,
+            children: pages,
+          ),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              if (index == 1 && appState.userProfile == null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PhoneAuthScreen(
+                      onLoginSuccess: () {
+                        Navigator.pop(context);
+                        setState(() => _currentIndex = 1);
+                      },
+                    ),
+                  ),
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('يجب تسجيل الدخول برقم الهاتف للوصول إلى السلة')),
+                );
+                return;
+              }
+              setState(() => _currentIndex = index);
+            },
+            backgroundColor: cardBg,
+            selectedItemColor: Colors.amber,
+            unselectedItemColor: Colors.grey,
+            type: BottomNavigationBarType.fixed,
+            items: [
+              const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
+              BottomNavigationBarItem(
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.shopping_cart),
+                    if (appState.totalCartItemsCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          child: Text(
+                            '${appState.totalCartItemsCount}',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                label: 'السلة',
+              ),
+              const BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'طلباتي'),
+              const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'حسابي'),
+            ],
+          ),
         ),
       ),
     );
