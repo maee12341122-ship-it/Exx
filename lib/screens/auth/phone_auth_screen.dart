@@ -33,14 +33,11 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
 
   // دالة إرسال الرمز عبر الواتساب مباشرة
   Future<void> _sendWhatsAppOtp(String phone) async {
-    // 1. توليد رمز عشوائي من 6 أرقام
     generatedOtp = (100000 + Random().nextInt(900000)).toString();
 
-    // حفظ الرمز في الـ AppState لكي يتم التحقق منه لاحقاً
     final appState = Provider.of<AppState>(context, listen: false);
     appState.setCustomGeneratedOtp(_phoneController.text, generatedOtp);
 
-    // 2. تجهيز رسالة الواتساب للرقم المدخل
     String formattedPhone = phone.trim();
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '967${formattedPhone.substring(1)}';
@@ -71,7 +68,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFF1A237E), // أزرق داكن فخم
+        backgroundColor: const Color(0xFF1A237E),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -164,7 +161,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: () {
-                        // التحقق من تطابق الكود المدخل مع الكود المولد حصرياً
                         if (_otpController.text == generatedOtp) {
                           setState(() => step = 3);
                         } else {
@@ -175,12 +171,13 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                   ],
 
-                  // الخطوة 3: إدخال الاسم والموقع وحفظه في Supabase
+                  // الخطوة 3: إدخال الاسم والموقع (مع تصحيح نوع الكيبورد للحروف وحفظ الجلسة نهائياً)
                   if (step == 3) ...[
                     const Text('أدخل بياناتك الشخصية لإتمام التسجيل', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 15),
                     TextField(
                       controller: _nameController,
+                      keyboardType: TextInputType.text, // تم الضبط لوحة المفاتيح للنصوص العادية بدلاً من الأرقام
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         labelText: 'الاسم الكامل',
@@ -194,6 +191,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _addressController,
+                      keyboardType: TextInputType.text,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         labelText: 'العنوان بالتفصيل',
@@ -227,15 +225,22 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       ),
                       onPressed: () {
                         if (_nameController.text.isNotEmpty && _addressController.text.isNotEmpty) {
+                          // حفظ البيانات في قاعدة البيانات وتثبيت حالة تسجيل الدخول لكي لا يتكرر الطلب
                           appState.saveUserProfileDetails(_nameController.text, _addressController.text);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تفعيل الحساب وحفظه في قاعدة البيانات بنجاح! ✅')));
+                          
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('تم تفعيل الحساب وحفظه في قاعدة البيانات بنجاح! ✅')),
+                          );
+
                           if (widget.onLoginSuccess != null) {
                             widget.onLoginSuccess!();
                           } else {
-                            Navigator.pop(context);
+                            Navigator.pop(context, true); // إرجاع قيمة true لتحديث الحالة في الشاشة الرئيسية والوصول للسلة مباشرة
                           }
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال الاسم والعنوان')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('الرجاء إدخال الاسم والعنوان')),
+                          );
                         }
                       },
                       child: const Text('حفظ وبدء الاستخدام', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
