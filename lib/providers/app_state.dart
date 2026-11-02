@@ -174,10 +174,27 @@ class AppState extends ChangeNotifier {
     return false;
   }
 
-  void saveUserProfileDetails(String name, String address) {
+  // دالة حفظ بيانات المستخدم في جدول Supabase مباشرة وضمان عدم تكرار تسجيل الدخول
+  Future<void> saveUserProfileDetails(String name, String address) async {
     if (userProfile != null) {
       userProfile!['name'] = name;
       userProfile!['address'] = address;
+      
+      String phone = userProfile!['phone'] ?? '';
+
+      try {
+        // الحفظ الفعلي في جدول customers في Supabase مطابَقاً لأسماء الأعمدة (phone, name, city)
+        await supabase.from('customers').upsert({
+          'phone': phone,
+          'name': name,
+          'city': address,
+        }, onConflict: 'phone');
+
+        debugPrint('✅ تم حفظ بيانات العميل في قاعدة بيانات Supabase بنجاح');
+      } catch (e) {
+        debugPrint('❌ خطأ في حفظ بيانات العميل في Supabase: $e');
+      }
+
       notifyListeners();
     }
   }
@@ -444,8 +461,7 @@ class AppState extends ChangeNotifier {
       final customerResponse = await supabase.from('customers').upsert({
         'phone': phone,
         'name': customerName,
-        'address': address,
-        'city': currentCity,
+        'city': address,
       }, onConflict: 'phone');
       debugPrint('✅ تم حفظ بيانات العميل بنجاح: $customerResponse');
     } catch (e) {
