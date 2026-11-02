@@ -66,14 +66,19 @@ class _MapLocationScreenState extends State<MapLocationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const cardColor = Color(0xFF1E1E1E);       // أسود رمادي فاخر
+    const backgroundColor = Color(0xFF121212); // أسود داكن
+    const primaryGold = Colors.amber;          // ذهبي
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: backgroundColor,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF1A237E),
-          title: const Text('حدد موقعك بدقة على الخريطة', style: TextStyle(color: Colors.white, fontSize: 16)),
+          backgroundColor: cardColor,
+          title: const Text('حدد موقعك بدقة على الخريطة', style: TextStyle(color: primaryGold, fontSize: 16, fontWeight: FontWeight.bold)),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_forward, color: Colors.white),
+            icon: const Icon(Icons.arrow_forward, color: primaryGold),
             onPressed: () => Navigator.pop(context, _selectedLocationName),
           ),
         ),
@@ -106,24 +111,24 @@ class _MapLocationScreenState extends State<MapLocationScreen> {
             const Center(
               child: Padding(
                 padding: EdgeInsets.only(bottom: 40),
-                child: Icon(Icons.location_on, size: 50, color: Colors.redAccent),
+                child: Icon(Icons.location_pin, size: 50, color: Colors.amberAccent),
               ),
             ),
 
-            // زر تحديد الموقع الحالي (GPS)
+            // زر تحديد الموقع الحالي (GPS) بالثيم الأسود والذهبي
             Positioned(
               top: 20,
               left: 20,
               child: FloatingActionButton(
-                backgroundColor: Colors.amber[700],
+                backgroundColor: cardColor,
                 child: _isLoadingGps 
-                    ? const CircularProgressIndicator(color: Colors.black) 
-                    : const Icon(Icons.my_location, color: Colors.black),
+                    ? const CircularProgressIndicator(color: primaryGold) 
+                    : const Icon(Icons.my_location, color: primaryGold),
                 onPressed: _determinePosition,
               ),
             ),
 
-            // شريط العنوان السفلي مع زر التأكيد
+            // شريط العنوان السفلي مع زر التأكيد بالثيم الأسود والذهبي الفاخر
             Positioned(
               bottom: 20,
               left: 20,
@@ -131,16 +136,17 @@ class _MapLocationScreenState extends State<MapLocationScreen> {
               child: Container(
                 padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A237E),
+                  color: cardColor,
                   borderRadius: BorderRadius.circular(15),
-                  boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 10)],
+                  border: Border.all(color: primaryGold.withOpacity(0.3)),
+                  boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10)],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.home, color: Colors.amberAccent),
+                        const Icon(Icons.home, color: primaryGold),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -154,7 +160,7 @@ class _MapLocationScreenState extends State<MapLocationScreen> {
                     const SizedBox(height: 12),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber[700],
+                        backgroundColor: primaryGold,
                         minimumSize: const Size(double.infinity, 45),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
