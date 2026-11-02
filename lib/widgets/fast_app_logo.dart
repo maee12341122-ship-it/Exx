@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class FastAppLogo extends StatelessWidget {
   const FastAppLogo({Key? key}) : super(key: key);
 
@@ -6,9 +8,9 @@ class FastAppLogo extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E), // خلفية سوداء رمادية فخمة
+        color: const Color(0xFF1E1E1E),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.amber, width: 2), // إطار ذهبي
+        border: Border.all(color: Colors.amber, width: 2),
         boxShadow: [
           BoxShadow(
             color: Colors.amber.withOpacity(0.3),
@@ -21,7 +23,7 @@ class FastAppLogo extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: const [
           Icon(
-            Icons.flash_on, // أيقونة البرق للدلالة على السرعة الفائقة
+            Icons.flash_on,
             size: 50,
             color: Colors.amber,
           ),
@@ -40,4 +42,3 @@ class FastAppLogo extends StatelessWidget {
     );
   }
 }
-
