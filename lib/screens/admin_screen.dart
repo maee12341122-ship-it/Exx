@@ -2,69 +2,103 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/product_model.dart';
+import 'chat_screen.dart';
 
-class AdminScreen extends StatelessWidget {
+class AdminScreen extends StatefulWidget {
   const AdminScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context, listen: false);
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: DefaultTabController(
-        length: 3,
-        child: Scaffold(
-          backgroundColor: const Color(0xFF121212),
-          appBar: AppBar(
-            backgroundColor: const Color(0xFF1E1E1E),
-            title: const Text('لوحة تحكم المشرف – تعز إكسبرس', style: TextStyle(color: Colors.white, fontSize: 16)),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.logout, color: Colors.red),
-                tooltip: 'تسجيل خروج المشرف وإغلاق الجلسة',
-                onPressed: () {
-                  appState.logoutAdmin();
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تسجيل خروج المشرف وإغلاق الجلسة بنجاح')));
-                },
-              ),
-            ],
-            bottom: const TabBar(
-              indicatorColor: Colors.amber,
-              labelColor: Colors.amber,
-              unselectedLabelColor: Colors.grey,
-              tabs: [
-                Tab(icon: Icon(Icons.receipt_long), text: 'الطلبات والتنبيهات'),
-                Tab(icon: Icon(Icons.two_wheeler), text: 'المندوبون'),
-                Tab(icon: Icon(Icons.inventory_2), text: 'المنتجات وإعداد الدوام'),
-              ],
-            ),
-          ),
-          body: const TabBarView(
-            children: [
-              _OrdersTab(),
-              _CouriersTab(),
-              _ProductsSettingsTab(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  State<AdminScreen> createState() => _AdminScreenState();
 }
 
-class _OrdersTab extends StatelessWidget {
-  const _OrdersTab();
+class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  final TextEditingController _pNameController = TextEditingController();
+  final TextEditingController _pPriceController = TextEditingController();
+  final TextEditingController _pRestaurantController = TextEditingController();
+  String _pCategory = 'المطاعم';
+
+  final TextEditingController _cNameController = TextEditingController();
+  final TextEditingController _cPhoneController = TextEditingController();
+  final TextEditingController _cUserCtrl = TextEditingController();
+  final TextEditingController _cPassCtrl = TextEditingController();
+
+  final TextEditingController _startHourController = TextEditingController();
+  final TextEditingController _endHourController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _pNameController.dispose();
+    _pPriceController.dispose();
+    _pRestaurantController.dispose();
+    _cNameController.dispose();
+    _cPhoneController.dispose();
+    _cUserCtrl.dispose();
+    _cPassCtrl.dispose();
+    _startHourController.dispose();
+    _endHourController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
 
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF121212),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF1E1E1E),
+          title: const Text('لوحة تحكم المشرف العامة', style: TextStyle(color: Colors.white, fontSize: 16)),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.red),
+              tooltip: 'تسجيل الخروج',
+              onPressed: () {
+                appState.logoutAdmin();
+                Navigator.pop(context);
+              },
+            ),
+          ],
+          bottom: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            labelColor: Colors.amber,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.amber,
+            tabs: const [
+              Tab(text: 'الطلبات الواردة'),
+              Tab(text: 'إدارة المنتجات والدوام'),
+              Tab(text: 'إدارة المناديب'),
+              Tab(text: 'التنبيهات الإدارية'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildOrdersTab(appState),
+            _buildProductsAndHoursTab(appState),
+            _buildCouriersTab(appState),
+            _buildNotificationsTab(appState),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrdersTab(AppState appState) {
     if (appState.orders.isEmpty) {
-      return const Center(
-        child: Text('لا توجد طلبات جديدة حالياً', style: TextStyle(color: Colors.grey)),
-      );
+      return const Center(child: Text('لا توجد طلبات جديدة حالياً', style: TextStyle(color: Colors.grey)));
     }
 
     return ListView.builder(
@@ -72,14 +106,17 @@ class _OrdersTab extends StatelessWidget {
       itemCount: appState.orders.length,
       itemBuilder: (context, index) {
         final order = appState.orders[index];
-        final TextEditingController feeController = TextEditingController(text: order['deliveryFee'] > 0 ? order['deliveryFee'].toString() : '');
-        String selectedCourier = order['assignedCourier'] != 'لم يتم التعيين' ? order['assignedCourier'] : (appState.couriers.isNotEmpty ? appState.couriers.first['name'] : 'لا يوجد');
+        final orderId = order['id'].toString();
+        final feeController = TextEditingController(text: (order['delivery_fee'] ?? 500).toString());
 
-        bool isFeeSent = order['isFeeSent'] == true;
-        bool isRejected = order['status'] == 'rejectedByCourier';
+        // جلب اسم المندوب المعين إن وُجد
+        String assignedCourierName = order['assigned_courier'] ?? 'لم يتم التعيين';
+        String selectedCourier = appState.couriers.any((c) => c['name'] == assignedCourierName)
+            ? assignedCourierName
+            : (appState.couriers.isNotEmpty ? appState.couriers[0]['name'] : '');
 
         return Card(
-          color: isRejected ? Colors.red[900] : const Color(0xFF1E1E1E),
+          color: const Color(0xFF1E1E1E),
           margin: const EdgeInsets.symmetric(vertical: 6),
           child: Padding(
             padding: const EdgeInsets.all(12.0),
@@ -89,87 +126,94 @@ class _OrdersTab extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('طلب #${order['id']} - العميل: ${order['customerName']}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                    // 🟢 زر التعديل الجانبي الذي يظهر بعد إرسال الرسوم لتعديلها عند الحاجة
-                    if (isFeeSent)
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.cyanAccent),
-                        tooltip: 'تعديل رسوم التوصيل والمندوب',
-                        onPressed: () {
-                          appState.enableOrderFeeEditing(order['id']);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم فتح قفل التعديل لرسوم التوصيل')));
-                        },
-                      ),
+                    Text('طلب #$orderId', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chat_bubble, color: Colors.amber),
+                          tooltip: 'مراسلة العميل',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  orderId: orderId,
+                                  userRole: 'admin',
+                                  targetChat: 'admin_customer',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.two_wheeler, color: Colors.cyanAccent),
+                          tooltip: 'مراسلة المندوب',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  orderId: orderId,
+                                  userRole: 'admin',
+                                  targetChat: 'admin_courier',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text('الهاتف: ${order['phone']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                Text('العنوان: ${order['address']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                Text('المنتجات: ${order['itemsDescription']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                Text('إجمالي المنتجات: ${order['productsTotal']} ر.ي', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-
-                if (order['adminMessage'] != null && order['adminMessage'].toString().isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-                    child: Text('📢 ${order['adminMessage']}', style: const TextStyle(color: Colors.yellowAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-
+                const SizedBox(height: 6),
+                Text('العميل: ${order['customer_name'] ?? ''} | هاتف: ${order['phone'] ?? ''}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text('العنوان: ${order['address'] ?? ''}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text('الطلبات: ${order['items_description'] ?? ''}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text('سعر المنتجات: ${order['products_total'] ?? 0} ر.ي', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text('الحالة: ${order['status'] ?? ''}', style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
                 const Divider(color: Colors.grey),
-
-                // الحقل مقيد إذا تم إرسال الرسوم، وغير مقيد إذا ضغط المشرف على زر التعديل الجانبي
-                TextField(
-                  controller: feeController,
-                  keyboardType: TextInputType.phone,
-                  enabled: !isFeeSent,
-                  style: TextStyle(color: isFeeSent ? Colors.grey : Colors.white),
-                  decoration: InputDecoration(
-                    labelText: isFeeSent ? 'تم إرسال رسوم التوصيل (مقيد)' : 'حدد رسوم التوصيل (ر.ي)',
-                    labelStyle: const TextStyle(color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                DropdownButtonFormField<String>(
-                  dropdownColor: const Color(0xFF1E1E1E),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'اختر المندوب',
-                    labelStyle: TextStyle(color: Colors.grey),
-                  ),
-                  value: appState.couriers.any((c) => c['name'] == selectedCourier) ? selectedCourier : null,
-                  items: appState.couriers.map((courier) {
-                    return DropdownMenuItem<String>(
-                      value: courier['name'],
-                      child: Text('${courier['name']} (${courier['status'] == 'available' ? 'متاح 🟢' : 'مشغول 🔴'})'),
-                    );
-                  }).toList(),
-                  onChanged: isFeeSent ? null : (val) {
-                    if (val != null) {
-                      selectedCourier = val;
-                    }
-                  },
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: feeController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(labelText: 'رسوم التوصيل', labelStyle: TextStyle(color: Colors.grey)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: appState.couriers.any((c) => c['name'] == selectedCourier) ? selectedCourier : null,
+                        dropdownColor: const Color(0xFF1E1E1E),
+                        style: const TextStyle(color: Colors.white),
+                        items: appState.couriers.map<DropdownMenuItem<String>>((c) {
+                          return DropdownMenuItem<String>(
+                            value: c['name'],
+                            child: Text(c['name'], style: const TextStyle(color: Colors.white)),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) selectedCourier = val;
+                        },
+                        decoration: const InputDecoration(labelText: 'اختر المندوب', labelStyle: TextStyle(color: Colors.grey)),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
-
-                if (!isFeeSent)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, minimumSize: const Size(double.infinity, 40)),
-                    onPressed: () {
-                      final fee = double.tryParse(feeController.text) ?? 500.0;
-                      appState.setOrderDeliveryFee(order['id'], fee, selectedCourier);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('تم إرسال رسوم التوصيل وقفل الطلب بنجاح!')),
-                      );
-                    },
-                    child: const Text('إرسال رسوم التوصيل وإسناد المندوب للعميل', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                  )
-                else
-                  const Center(
-                    child: Text('🔒 الطلب مقيد حالياً بانتظار رد العميل (اضغط زر التعديل بالأعلى للتعديل)', style: TextStyle(color: Colors.greenAccent, fontSize: 11)),
-                  ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, minimumSize: const Size(double.infinity, 38)),
+                  onPressed: () {
+                    double fee = double.tryParse(feeController.text) ?? 500.0;
+                    appState.setOrderDeliveryFee(orderId, fee, selectedCourier);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث وإرسال التسعيرة والمندوب بنجاح!')));
+                  },
+                  child: const Text('تحديث وإرسال للمندوب والعميل', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 5),
+                Text('ملاحظة: ${order['admin_message'] ?? ''}', style: const TextStyle(color: Colors.greenAccent, fontSize: 12)),
               ],
             ),
           ),
@@ -177,251 +221,155 @@ class _OrdersTab extends StatelessWidget {
       },
     );
   }
-}
 
-class _CouriersTab extends StatelessWidget {
-  const _CouriersTab();
-
-  @override
-  Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final usernameController = TextEditingController();
-    final passwordController = TextEditingController();
+  Widget _buildProductsAndHoursTab(AppState appState) {
+    if (_startHourController.text.isEmpty) {
+      _startHourController.text = appState.startHour.toString();
+      _endHourController.text = appState.endHour.toString();
+    }
 
     return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
+      padding: const EdgeInsets.all(16.0),
+      child: ListView(
         children: [
-          Card(
-            color: const Color(0xFF1E1E1E),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                children: [
-                  const Text('إضافة مندوب جديد بحساب مستقل', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: nameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: 'اسم المندوب', labelStyle: TextStyle(color: Colors.grey)),
-                  ),
-                  TextField(
-                    controller: phoneController,
-                    keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: 'رقم الهاتف', labelStyle: TextStyle(color: Colors.grey)),
-                  ),
-                  TextField(
-                    controller: usernameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: 'اسم المستخدم', labelStyle: TextStyle(color: Colors.grey)),
-                  ),
-                  TextField(
-                    controller: passwordController,
-                    obscureText: true,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: 'كلمة السر', labelStyle: TextStyle(color: Colors.grey)),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, minimumSize: const Size(double.infinity, 40)),
-                    onPressed: () {
-                      if (nameController.text.isNotEmpty && usernameController.text.isNotEmpty && passwordController.text.isNotEmpty) {
-                        appState.addCourier(
-                          nameController.text,
-                          phoneController.text,
-                          usernameController.text.trim(),
-                          passwordController.text.trim(),
-                        );
-                        nameController.clear();
-                        phoneController.clear();
-                        usernameController.clear();
-                        passwordController.clear();
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إضافة المندوب بنجاح')));
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إكمال كافة الحقول')));
-                      }
-                    },
-                    child: const Text('حفظ وإضافة المندوب', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('⏰ التحكم بساعات الدوام الرسمي للعمل', style: TextStyle(color: Colors.amber, fontSize: 15, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _startHourController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(labelText: 'ساعة الفتح', labelStyle: TextStyle(color: Colors.grey)),
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: TextField(
+                        controller: _endHourController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(labelText: 'ساعة الإغلاق', labelStyle: TextStyle(color: Colors.grey)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, minimumSize: const Size(double.infinity, 38)),
+                  onPressed: () {
+                    int start = int.tryParse(_startHourController.text) ?? 11;
+                    int end = int.tryParse(_endHourController.text) ?? 22;
+                    appState.setWorkingHours(start, end);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث ساعات الدوام بنجاح! ✅')));
+                  },
+                  child: const Text('حفظ وتحديث ساعات الدوام', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                ),
+              ],
             ),
           ),
+          const Divider(color: Colors.grey, height: 30),
+          const Text('إضافة منتج أو صنف جديد', style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          Expanded(
-            child: ListView.builder(
-              itemCount: appState.couriers.length,
-              itemBuilder: (context, index) {
-                final c = appState.couriers[index];
-                return ListTile(
-                  tileColor: const Color(0xFF1E1E1E),
-                  leading: Icon(Icons.circle, color: c['status'] == 'available' ? Colors.green : Colors.red, size: 14),
-                  title: Text('المندوب: ${c['name']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: Text('اسم المستخدم: ${c['username']} | الهاتف: ${c['phone']} | الحالة: ${c['status'] == 'available' ? 'متاح 🟢' : 'مشغول 🔴'}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                );
-              },
-            ),
+          TextField(controller: _pNameController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'اسم المنتج', labelStyle: TextStyle(color: Colors.grey))),
+          TextField(controller: _pPriceController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'السعر (ر.ي)', labelStyle: TextStyle(color: Colors.grey))),
+          TextField(controller: _pRestaurantController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'اسم المتجر / المطعم', labelStyle: TextStyle(color: Colors.grey))),
+          DropdownButton<String>(
+            value: _pCategory,
+            dropdownColor: const Color(0xFF1E1E1E),
+            style: const TextStyle(color: Colors.white),
+            items: ['المطاعم', 'البقالات', 'الخضار والفواكه', 'الصيدلية الآمنة', 'طلبات أخرى'].map((cat) {
+              return DropdownMenuItem(value: cat, child: Text(cat));
+            }).toList(),
+            onChanged: (val) => setState(() => _pCategory = val!),
+          ),
+          const SizedBox(height: 15),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+            onPressed: () {
+              if (_pNameController.text.isNotEmpty && _pPriceController.text.isNotEmpty) {
+                appState.addProduct(ProductModel(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: _pNameController.text,
+                  restaurantName: _pRestaurantController.text.isEmpty ? 'متجر عام' : _pRestaurantController.text,
+                  price: double.tryParse(_pPriceController.text) ?? 1000.0,
+                  category: _pCategory,
+                  available: true,
+                  imageUrl: '',
+                ));
+                _pNameController.clear();
+                _pPriceController.clear();
+                _pRestaurantController.clear();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إضافة المنتج بنجاح!')));
+              }
+            },
+            child: const Text('حفظ وإضافة المنتج', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
-}
 
-class _ProductsSettingsTab extends StatefulWidget {
-  const _ProductsSettingsTab();
-
-  @override
-  State<_ProductsSettingsTab> createState() => _ProductsSettingsTabState();
-}
-
-class _ProductsSettingsTabState extends State<_ProductsSettingsTab> {
-  late TextEditingController startController;
-  late TextEditingController endController;
-  final TextEditingController prodNameController = TextEditingController();
-  final TextEditingController prodPriceController = TextEditingController();
-  String selectedCategory = 'المطاعم';
-
-  @override
-  void initState() {
-    super.initState();
-    final appState = Provider.of<AppState>(context, listen: false);
-    startController = TextEditingController(text: appState.startHour.toString());
-    endController = TextEditingController(text: appState.endHour.toString());
-  }
-
-  @override
-  void dispose() {
-    startController.dispose();
-    endController.dispose();
-    prodNameController.dispose();
-    prodPriceController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildCouriersTab(AppState appState) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ListView(
         children: [
-          const Text('أوقات الدوام الرسمي', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 15)),
+          const Text('إضافة مندوب توصيل جديد', style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: startController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'بداية الدوام', labelStyle: TextStyle(color: Colors.grey), filled: true, fillColor: Color(0xFF1E1E1E)),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: endController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'نهاية الدوام', labelStyle: TextStyle(color: Colors.grey), filled: true, fillColor: Color(0xFF1E1E1E)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
+          TextField(controller: _cNameController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'اسم المندوب الكامل', labelStyle: TextStyle(color: Colors.grey))),
+          TextField(controller: _cPhoneController, keyboardType: TextInputType.phone, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'رقم الهاتف', labelStyle: TextStyle(color: Colors.grey))),
+          TextField(controller: _cUserCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'اسم المستخدم للدخول', labelStyle: TextStyle(color: Colors.grey))),
+          TextField(controller: _cPassCtrl, obscureText: true, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'كلمة السر', labelStyle: TextStyle(color: Colors.grey))),
+          const SizedBox(height: 15),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, minimumSize: const Size(double.infinity, 40)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
             onPressed: () {
-              final s = int.tryParse(startController.text) ?? 11;
-              final e = int.tryParse(endController.text) ?? 22;
-              appState.setWorkingHours(s, e);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث أوقات الدوام بنجاح')));
-            },
-            child: const Text('حفظ إعدادات الدوام', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(height: 25),
-          const Text('إضافة منتج جديد وتحديد القسم', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 10),
-          TextField(
-            controller: prodNameController,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(labelText: 'اسم المنتج أو الوجبة', labelStyle: TextStyle(color: Colors.grey), filled: true, fillColor: Color(0xFF1E1E1E)),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: prodPriceController,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(labelText: 'السعر (ر.ي)', labelStyle: TextStyle(color: Colors.grey), filled: true, fillColor: Color(0xFF1E1E1E)),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            dropdownColor: const Color(0xFF1E1E1E),
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              labelText: 'اختر القسم التابع له المنتج',
-              labelStyle: TextStyle(color: Colors.grey),
-              filled: true,
-              fillColor: Color(0xFF1E1E1E),
-            ),
-            value: selectedCategory,
-            items: ['المطاعم', 'البقالات', 'الخضار والفواكه', 'الصيدلية الآمنة', 'طلبات أخرى'].map((cat) {
-              return DropdownMenuItem(value: cat, child: Text(cat));
-            }).toList(),
-            onChanged: (val) {
-              if (val != null) {
-                setState(() {
-                  selectedCategory = val;
-                });
+              if (_cNameController.text.isNotEmpty && _cUserCtrl.text.isNotEmpty) {
+                appState.addCourier(_cNameController.text, _cPhoneController.text, _cUserCtrl.text, _cPassCtrl.text);
+                _cNameController.clear();
+                _cPhoneController.clear();
+                _cUserCtrl.clear();
+                _cPassCtrl.clear();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إضافة المندوب بنجاح!')));
               }
             },
+            child: const Text('تسجيل المندوب', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
-          const SizedBox(height: 12),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, minimumSize: const Size(double.infinity, 40)),
-            onPressed: () {
-              if (prodNameController.text.isNotEmpty && prodPriceController.text.isNotEmpty) {
-                appState.addProduct(ProductModel(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  name: prodNameController.text,
-                  restaurantName: 'متجر الإدارة المعتمد',
-                  price: double.tryParse(prodPriceController.text) ?? 1000.0,
-                  category: selectedCategory,
-                  available: true,
-                  imageUrl: '',
-                ));
-                prodNameController.clear();
-                prodPriceController.clear();
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إضافة المنتج بنجاح وتحديثه لدى العميل!')));
-              }
-            },
-            child: const Text('إضافة المنتج للقائمة', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(height: 25),
-          const Text('المنتجات الحالية', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 10),
-          ...(appState.products as List).map((dynamic p) {
-            final ProductModel product = p as ProductModel;
-            return Card(
-              color: const Color(0xFF1E1E1E),
-              child: ListTile(
-                title: Text(product.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                subtitle: Text('${product.restaurantName} - ${product.price} ر.ي (${product.category})', style: const TextStyle(color: Colors.grey)),
-                trailing: IconButton(
-                  icon: Icon(product.available ? Icons.check_circle : Icons.cancel, color: product.available ? Colors.green : Colors.red),
-                  onPressed: () => appState.toggleProductAvailability(product.id),
-                ),
-              ),
-            );
-          }).toList(),
         ],
       ),
+    );
+  }
+
+  Widget _buildNotificationsTab(AppState appState) {
+    if (appState.notifications.isEmpty) {
+      return const Center(child: Text('لا توجد تنبيهات حالياً', style: TextStyle(color: Colors.grey)));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: appState.notifications.length,
+      itemBuilder: (context, index) {
+        final notif = appState.notifications[index];
+        return Card(
+          color: const Color(0xFF1E1E1E),
+          child: ListTile(
+            leading: const Icon(Icons.notifications_active, color: Colors.amber),
+            title: Text(notif['title'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            subtitle: Text(notif['body'], style: const TextStyle(color: Colors.white70)),
+          ),
+        );
+      },
     );
   }
 }

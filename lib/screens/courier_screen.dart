@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
+import 'chat_screen.dart';
 
 class CourierScreen extends StatefulWidget {
   const CourierScreen({Key? key}) : super(key: key);
@@ -101,8 +102,10 @@ class _CourierScreenState extends State<CourierScreen> {
 
   Widget _buildCourierOrdersList(AppState appState, Map<String, dynamic> courier) {
     final String todayDate = DateTime.now().toString().split(' ')[0];
+
+    // فلترة الطلبات المسندة للمندوب بناءً على الحقل الصحيح في Supabase
     final myOrders = appState.orders.where((o) {
-      return o['assignedCourier'] == courier['name'];
+      return o['assigned_courier'] == courier['name'];
     }).toList();
 
     return Padding(
@@ -129,7 +132,7 @@ class _CourierScreenState extends State<CourierScreen> {
               itemCount: myOrders.length,
               itemBuilder: (context, index) {
                 final order = myOrders[index];
-                bool isWaitingResponse = order['status'] == 'assignedToCourier';
+                final orderId = order['id'].toString();
 
                 return Card(
                   color: const Color(0xFF1E1E1E),
@@ -139,18 +142,41 @@ class _CourierScreenState extends State<CourierScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('طلب #${order['id']} - العميل: ${order['customerName']}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 5),
-                        Text('الهاتف: ${order['phone']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text('العنوان: ${order['address']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text('المنتجات: ${order['itemsDescription']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                        Text('الإجمالي المطلوب: ${order['totalPrice']} ر.ي', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                        Text('الحالة: ${order['status']}', style: const TextStyle(color: Colors.cyanAccent, fontSize: 13)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('طلب #$orderId', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
+                            IconButton(
+                              icon: const Icon(Icons.chat, color: Colors.amber),
+                              tooltip: 'مراسلة المشرف',
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ChatScreen(
+                                      orderId: orderId,
+                                      userRole: 'courier',
+                                      targetChat: 'admin_courier',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text('العنوان المطلوب: ${order['address'] ?? ''}', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                        const SizedBox(height: 4),
+                        Text('المنتجات: ${order['items_description'] ?? ''}', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                        const SizedBox(height: 4),
+                        Text('الإجمالي المطلوب: ${order['total_price'] ?? 0} ر.ي', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text('الحالة: ${order['status'] ?? ''}', style: const TextStyle(color: Colors.cyanAccent, fontSize: 13)),
                         const Divider(color: Colors.grey),
 
-                        // أزرار القبول أو الرفض للطلب
-                        if (isWaitingResponse) ...[
-                          const Text('هل تقبل توصيل هذا الطلب؟', style: TextStyle(color: Colors.amber, fontSize: 12)),
+                        // التسلسل الصحيح لأزرار المندوب:
+                        if (order['status'] == 'waitingCourierApproval') ...[
+                          const Text('هل تقبل توصيل هذا الطلب؟', style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
                           Row(
                             children: [
@@ -158,8 +184,8 @@ class _CourierScreenState extends State<CourierScreen> {
                                 child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                                   onPressed: () {
-                                    appState.courierRespondToOrder(order['id'], true);
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('قَبِلت الطلب بنجاح!')));
+                                    appState.courierRespondToOrder(orderId, true);
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('قَبِلت الطلب بنجاح 🟢')));
                                   },
                                   child: const Text('قبول الطلب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 ),
@@ -169,26 +195,38 @@ class _CourierScreenState extends State<CourierScreen> {
                                 child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                                   onPressed: () {
-                                    appState.courierRespondToOrder(order['id'], false);
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم رفض الطلب وإرسال تنبيه للمشرف!')));
+                                    appState.courierRespondToOrder(orderId, false);
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم رفض الطلب وإعادته للإدارة 🔴')));
                                   },
                                   child: const Text('رفض الطلب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 ),
                               ),
                             ],
                           ),
-                        ] else if (order['status'] == 'onTheWay') ...[
+                        ]
+                        else if (order['status'] == 'onTheWay') ...[
                           ElevatedButton(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 35)),
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, minimumSize: const Size(double.infinity, 40)),
                             onPressed: () {
-                              appState.markOrderDelivered(order['id']);
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تأكيد تسليم الطلب للعميل!')));
+                              appState.courierUpdateArrival(orderId);
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إرسال إشعار الوصول للعميل والمشرف! 📍')));
                             },
-                            child: const Text('تأكيد تسليم الطلب للعميل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            child: const Text('هل وصلت إلى العميل؟ (نعم، وصلت)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           ),
-                        ] else ...[
-                          Text('حالة الطلب: ${order['adminMessage']}', style: const TextStyle(color: Colors.greenAccent, fontSize: 12)),
-                        ],
+                        ]
+                        else if (order['status'] == 'arrived') ...[
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 40)),
+                              onPressed: () {
+                                appState.markOrderDelivered(orderId);
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تأكيد تسليم الطلب بنجاح! ✅')));
+                              },
+                              child: const Text('تم التسليم ✅', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ]
+                          else ...[
+                              Text('ملاحظة: ${order['admin_message'] ?? ''}', style: const TextStyle(color: Colors.greenAccent, fontSize: 12)),
+                            ],
                       ],
                     ),
                   ),

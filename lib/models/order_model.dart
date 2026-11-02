@@ -16,6 +16,8 @@ class OrderModel {
   final String paymentStatus;
   final String status;
   final String? deliveryManId;
+  final String assignedCourier;
+  final String itemsDescription;
   final String notes;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -35,12 +37,14 @@ class OrderModel {
     required this.paymentStatus,
     required this.status,
     this.deliveryManId,
+    this.assignedCourier = 'لم يتم التعيين',
+    this.itemsDescription = '',
     this.notes = '',
     required this.createdAt,
     required this.updatedAt,
   });
 
-  OrderModel copyWith({String? status, String? paymentStatus, String? deliveryManId, DateTime? updatedAt}) {
+  OrderModel copyWith({String? status, String? paymentStatus, String? deliveryManId, String? assignedCourier, DateTime? updatedAt}) {
     return OrderModel(
       id: id,
       customerId: customerId,
@@ -56,6 +60,7 @@ class OrderModel {
       paymentStatus: paymentStatus ?? this.paymentStatus,
       status: status ?? this.status,
       deliveryManId: deliveryManId ?? this.deliveryManId,
+      assignedCourier: assignedCourier ?? this.assignedCourier,
       notes: notes,
       createdAt: createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
@@ -63,45 +68,42 @@ class OrderModel {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'customerId': customerId,
-        'customerName': customerName,
-        'customerPhone': customerPhone,
-        'address': address.toJson(),
-        'items': items.map((item) => item.toJson()).toList(),
-        'subtotal': subtotal,
-        'deliveryFee': deliveryFee,
-        'discount': discount,
-        'total': total,
-        'paymentMethod': paymentMethod,
-        'paymentStatus': paymentStatus,
-        'status': status,
-        'deliveryManId': deliveryManId,
-        'notes': notes,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-      };
+    'id': id,
+    'customer_name': customerName,
+    'phone': customerPhone,
+    'address': address is String ? address : address.toString(),
+    'items_description': itemsDescription,
+    'products_total': subtotal,
+    'delivery_fee': deliveryFee,
+    'total_price': total,
+    'assigned_courier': assignedCourier,
+    'status': status,
+    'notes': notes,
+  };
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
-        id: json['id'] as String? ?? '',
-        customerId: json['customerId'] as String? ?? '',
-        customerName: json['customerName'] as String? ?? '',
-        customerPhone: json['customerPhone'] as String? ?? '',
-        address: AddressModel.fromJson(Map<String, dynamic>.from(json['address'] as Map? ?? {})),
-        items: (json['items'] as List<dynamic>? ?? [])
-            .whereType<Map<String, dynamic>>()
-            .map(CartItemModel.fromJson)
-            .toList(),
-        subtotal: (json['subtotal'] as num?)?.toInt() ?? 0,
-        deliveryFee: (json['deliveryFee'] as num?)?.toInt() ?? 0,
-        discount: (json['discount'] as num?)?.toInt() ?? 0,
-        total: (json['total'] as num?)?.toInt() ?? 0,
-        paymentMethod: json['paymentMethod'] as String? ?? 'cash',
-        paymentStatus: json['paymentStatus'] as String? ?? 'unpaid',
-        status: json['status'] as String? ?? 'pending',
-        deliveryManId: json['deliveryManId'] as String?,
-        notes: json['notes'] as String? ?? '',
-        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
-        updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
-      );
+    id: json['id']?.toString() ?? '',
+    customerId: json['customer_id']?.toString() ?? json['customerId']?.toString() ?? '',
+    customerName: json['customer_name']?.toString() ?? json['customerName']?.toString() ?? 'بدون اسم',
+    customerPhone: json['phone']?.toString() ?? json['customerPhone']?.toString() ?? '',
+    address: json['address'] is Map
+        ? AddressModel.fromJson(Map<String, dynamic>.from(json['address']))
+        : AddressModel(area: json['address']?.toString() ?? 'تعز', details: ''),
+    items: (json['items'] is List)
+        ? (json['items'] as List).whereType>().map(CartItemModel.fromJson).toList()
+        : [],
+    subtotal: int.tryParse(json['products_total']?.toString() ?? json['subtotal']?.toString() ?? '0') ?? 0,
+    deliveryFee: int.tryParse(json['delivery_fee']?.toString() ?? json['deliveryFee']?.toString() ?? '0') ?? 0,
+    discount: int.tryParse(json['discount']?.toString() ?? '0') ?? 0,
+    total: int.tryParse(json['total_price']?.toString() ?? json['total']?.toString() ?? '0') ?? 0,
+    paymentMethod: json['payment_method']?.toString() ?? json['paymentMethod']?.toString() ?? 'cash',
+    paymentStatus: json['payment_status']?.toString() ?? json['paymentStatus']?.toString() ?? 'unpaid',
+    status: json['status']?.toString() ?? 'waitingForPricing',
+    deliveryManId: json['delivery_man_id']?.toString() ?? json['deliveryManId']?.toString(),
+    assignedCourier: json['assigned_courier']?.toString() ?? 'لم يتم التعيين',
+    itemsDescription: json['items_description']?.toString() ?? '',
+    notes: json['notes']?.toString() ?? '',
+    createdAt: DateTime.tryParse(json['created_at']?.toString() ?? json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+    updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+  );
 }

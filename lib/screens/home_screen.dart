@@ -7,6 +7,7 @@ import 'admin_screen.dart';
 import 'customer/checkout_screen.dart';
 import 'auth/phone_auth_screen.dart';
 import 'courier_screen.dart';
+import 'chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -23,6 +24,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _customItemNameController = TextEditingController();
   final TextEditingController _customItemPriceController = TextEditingController();
 
+  // تتبع الطلبات التي ظهرت لها النافذة المنبثقة للعميل لكي لا تتكرر باستمرار
+  final Set<String> _shownPricingDialogs = {};
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -31,9 +35,85 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // دالة إظهار النافذة المنبثقة حصرياً للعميل في صفحته الرئيسية
+  void _checkAndShowPricingDialog(BuildContext context, AppState appState) {
+    // إذا كان المشرف هو من سجل الدخول أو لم يكن هناك عميل مسجل، لا تظهر شيئاً
+    if (appState.userProfile == null || appState.isAdminLoggedIn) return;
+
+    final customerPhone = appState.userProfile!['phone'];
+    for (var order in appState.orders) {
+      if (order['phone'] == customerPhone &&
+          order['status'] == 'pricingSentToCustomer' &&
+          !_shownPricingDialogs.contains(order['id'])) {
+
+        _shownPricingDialogs.add(order['id'].toString());
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                backgroundColor: const Color(0xFF1E1E1E),
+                title: Row(
+                  children: const [
+                    Icon(Icons.notifications_active, color: Colors.amber),
+                    SizedBox(width: 10),
+                    Text('تسعيرة جديدة من المشرف', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('طلب #${order['id']}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text('• رسوم التوصيل: (${order['deliveryFee']} ر.ي)', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                    Text('• الإجمالي الكلي: ${order['totalPrice']} ر.ي', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 12),
+                    const Text('هل توافق على رسوم التوصيل وتأكيد الطلب ليرسل للمندوب؟', style: TextStyle(color: Colors.white, fontSize: 13)),
+                  ],
+                ),
+                actions: [
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    onPressed: () {
+                      appState.customerConfirmOrder(order['id']);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('تم تأكيد الطلب وإرساله للمندوب بنجاح! ✅')),
+                      );
+                    },
+                    child: const Text('موافقة وتأكيد الطلب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                  TextButton(
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    onPressed: () {
+                      appState.customerCancelOrder(order['id']);
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('تم رفض الطلب وإلغاؤه ❌')),
+                      );
+                    },
+                    child: const Text('رفض وإلغاء', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
+
+    // فحص وعرض النافذة المنبثقة للعميل حصرياً في صفحته
+    _checkAndShowPricingDialog(context, appState);
+
     final themeBg = appState.isDarkMode ? const Color(0xFF121212) : Colors.grey[100]!;
     final cardBg = appState.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
     final textColor = appState.isDarkMode ? Colors.white : Colors.black87;
@@ -71,40 +151,50 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.admin_panel_settings, color: Colors.redAccent),
               tooltip: 'لوحة المشرف',
               onPressed: () {
-                final passwordController = TextEditingController();
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: const Color(0xFF1E1E1E),
-                    title: const Text('تسجيل دخول المشرف', style: TextStyle(color: Colors.white, fontSize: 14)),
-                    content: TextField(
-                      controller: passwordController,
-                      obscureText: true,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: const InputDecoration(
-                        hintText: 'أدخل كلمة السر الخاصة بك',
-                        hintStyle: TextStyle(color: Colors.grey),
+                if (appState.isAdminLoggedIn) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AdminScreen()),
+                  );
+                } else {
+                  final passwordController = TextEditingController();
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: const Color(0xFF1E1E1E),
+                      title: const Text('تسجيل دخول المشرف', style: TextStyle(color: Colors.white, fontSize: 14)),
+                      content: TextField(
+                        controller: passwordController,
+                        obscureText: true,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: const InputDecoration(
+                          hintText: 'أدخل كلمة السر الخاصة بك',
+                          hintStyle: TextStyle(color: Colors.grey),
+                        ),
                       ),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            bool loginSuccess = appState.loginAdmin(passwordController.text.trim());
+                            if (loginSuccess) {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const AdminScreen()),
+                              );
+                            } else {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('كلمة السر غير صحيحة!')),
+                              );
+                            }
+                          },
+                          child: const Text('دخول', style: TextStyle(color: Colors.amber)),
+                        ),
+                      ],
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          bool loginSuccess = appState.loginAdmin(passwordController.text.trim());
-                          if (loginSuccess) {
-                            Navigator.pop(context);
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminScreen()));
-                          } else {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('كلمة السر غير صحيحة أو أن لوحة المشرف مفتوحة بالفعل!')),
-                            );
-                          }
-                        },
-                        child: const Text('دخول', style: TextStyle(color: Colors.amber)),
-                      ),
-                    ],
-                  ),
-                );
+                  );
+                }
               },
             ),
           ],
@@ -116,7 +206,6 @@ class _HomeScreenState extends State<HomeScreen> {
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
-            // 🔒 إذا حاول العميل النقر على تبويب "السلة" ولم يكن مسجلاً دخوله، نلزمهم بالتسجيل فوراً من البداية
             if (index == 1 && appState.userProfile == null) {
               Navigator.push(
                 context,
@@ -382,7 +471,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCartTab(AppState appState, Color cardBg, Color textColor) {
-    // التحقق الفوري: إذا لم يكن العميل مسجلاً دخوله، نعرض له شاشة تسجيل الدخول بدل السلة
     if (appState.userProfile == null) {
       return Center(
         child: Padding(
@@ -483,45 +571,6 @@ class _HomeScreenState extends State<HomeScreen> {
       itemCount: appState.orders.length,
       itemBuilder: (context, index) {
         final order = appState.orders[index];
-        bool isWaitingApproval = order['status'] == 'pricingSentToCustomer';
-
-        // 🟢 إشعار منبثق (Dialog) تلقائي يظهر للعميل فور قيام المشرف بتحديد رسوم التوصيل
-        if (isWaitingApproval && order['dialogShown'] != true) {
-          order['dialogShown'] = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                backgroundColor: const Color(0xFF1E1E1E),
-                title: const Text('🚨 تسعيرة جديدة من المشرف', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                content: Text(
-                  'قام المشرف بتحديد رسوم التوصيل (${order['deliveryFee']} ر.ي).\nالإجمالي الكلي: ${order['totalPrice']} ر.ي.\nهل توافق على المتابعة وتأكيد الطلب؟',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      appState.customerRespondToPricing(order['id'], false);
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم رفض التسعيرة وإلغاء الطلب')));
-                    },
-                    child: const Text('رفض وإلغاء', style: TextStyle(color: Colors.red)),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                    onPressed: () {
-                      appState.customerRespondToPricing(order['id'], true);
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت الموافقة بنجاح! الطلب في الطريق إليك.')));
-                    },
-                    child: const Text('موافقة وقبول', style: TextStyle(color: Colors.white)),
-                  ),
-                ],
-              ),
-            );
-          });
-        }
 
         return Card(
           color: cardBg,
@@ -531,45 +580,36 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('طلب #${order['id']} - الحالة: ${order['status']}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('طلب #${order['id']} - الحالة: ${order['status']}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                    // 💬 زر مراسلة الإدارة للعميل
+                    IconButton(
+                      icon: const Icon(Icons.chat, color: Colors.amber),
+                      tooltip: 'مراسلة الإدارة ودعم الطلب',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChatScreen(
+                              orderId: order['id'],
+                              userRole: 'customer',
+                              targetChat: 'admin_customer',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 5),
                 Text('العنوان: ${order['address']}', style: TextStyle(color: textColor, fontSize: 13)),
-                Text('المنتجات والطلبات الخاصة: ${order['itemsDescription']}', style: TextStyle(color: textColor, fontSize: 13)),
-                Text('سعر المنتجات المجمع: ${order['productsTotal']} ر.ي', style: TextStyle(color: textColor, fontSize: 13)),
-                Text('رسوم التوصيل المحددة: ${order['deliveryFee']} ر.ي', style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                Text('المنتجات: ${order['itemsDescription']}', style: TextStyle(color: textColor, fontSize: 13)),
+                Text('سعر المنتجات: ${order['productsTotal']} ر.ي', style: TextStyle(color: textColor, fontSize: 13)),
+                Text('رسوم التوصيل: ${order['deliveryFee']} ر.ي', style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold)),
                 Text('الإجمالي الكلي: ${order['totalPrice']} ر.ي', style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold)),
                 Text('المندوب: ${order['assignedCourier']}', style: TextStyle(color: textColor, fontSize: 13)),
-
-                if (isWaitingApproval) ...[
-                  const Divider(color: Colors.grey),
-                  const Text('قام المشرف بتحديد رسوم التوصيل. هل توافق على الإجمالي؟', style: TextStyle(color: Colors.amber, fontSize: 12)),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                          onPressed: () {
-                            appState.customerRespondToPricing(order['id'], true);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت الموافقة! الطلب قيد التوصيل الآن.')));
-                          },
-                          child: const Text('موافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                          onPressed: () {
-                            appState.customerRespondToPricing(order['id'], false);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم رفض الطلب وإلغاؤه.')));
-                          },
-                          child: const Text('رفض وإلغاء', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
@@ -700,54 +740,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   ListTile(
                     leading: const Icon(Icons.phone, color: Colors.green),
                     title: Text('اتصال مباشر: 775145534', style: TextStyle(color: textColor)),
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.chat, color: Colors.green),
-                    title: Text('مراسلة عبر واتساب', style: TextStyle(color: textColor)),
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {},
                   ),
                 ],
               ),
-            ),
-          );
-        }),
-        _buildProfileItem(Icons.privacy_tip, 'سياسة الخصوصية', cardBg, textColor, () {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              backgroundColor: cardBg,
-              title: Text('سياسة الخصوصية', style: TextStyle(color: textColor)),
-              content: const Text('نحن نحرص على حماية بياناتك الشخصية وخصوصية معاملاتك وطلباتك بكل سرية وأمان.', style: TextStyle(color: Colors.grey)),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))
               ],
             ),
           );
         }),
-        _buildProfileItem(Icons.share, 'مشاركة التطبيق', cardBg, textColor, () {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ رابط مشاركة تطبيق تعز إكسبرس بنجاح!')));
-        }),
-
-        const SizedBox(height: 20),
-        const Center(
-          child: Text('الاصدار: 2.0.63\nتم التطوير بواسطة شركة تعز إكسبرس', style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.center),
-        ),
       ],
     );
   }
 
   Widget _buildProfileItem(IconData icon, String title, Color cardBg, Color textColor, VoidCallback onTap) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(10),
       ),
       child: ListTile(
-        leading: Icon(icon, color: const Color(0xFFC71538)),
-        title: Text(title, style: TextStyle(color: textColor, fontSize: 14)),
-        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 14),
+        leading: Icon(icon, color: Colors.amber),
+        title: Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
         onTap: onTap,
       ),
     );

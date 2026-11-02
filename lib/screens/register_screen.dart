@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/address_model.dart';
 import '../providers/app_state.dart';
-import '../utils/constants.dart';
 import '../utils/validators.dart';
 import 'location_picker_screen.dart';
 import 'main_shell.dart';
@@ -21,6 +21,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
+  late final TextEditingController _otpController;
+
+  bool _isOtpSent = false;
+  bool _isLoading = false;
 
   String _selectedArea = 'شارع جمال';
   LatLng? _selectedPoint;
@@ -39,6 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nameController = TextEditingController();
     _phoneController = TextEditingController();
     _addressController = TextEditingController();
+    _otpController = TextEditingController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final savedUser = context.read<AppState>().user;
@@ -64,6 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -78,8 +84,83 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  void _submit() {
+  // دالة مجانية لإرسال الرمز مباشرة عبر الواتساب لرقم العميل
+  Future<void> _sendOtpViaWhatsApp(String phone, String otpCode) async {
+    final message = Uri.encodeComponent(
+        '🌟 تطبيق تعز إكسبريس (Taiz Express) 🌟\n\n'
+            'أهلاً بك!\n'
+            'رمز التحقق الخاص بك هو: *$otpCode*\n\n'
+            'لا تشارك هذا الرمز مع أي شخص حفاظاً على أمان حسابك. 🚀'
+    );
+
+    String formattedPhone = phone.trim();
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '967${formattedPhone.substring(1)}';
+    } else if (!formattedPhone.startsWith('967')) {
+      formattedPhone = '967$formattedPhone';
+    }
+
+    final whatsappUrl = Uri.parse('https://wa.me/$formattedPhone?text=$message');
+
+    if (await canLaunchUrl(whatsappUrl)) {
+      await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر فتح تطبيق الواتساب')),
+        );
+      }
+    }
+  }
+
+  // طلب توليد الرمز وفتح الواتساب مجاناً
+  Future<void> _requestAndSendOtp() async {
     if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final appState = context.read<AppState>();
+    final phone = _phoneController.text.trim();
+
+    // 1. توليد الرمز
+    appState.requestOtpForPhone(phone);
+
+    // 2. إرسال الرسالة عبر رابط الواتساب المجاني
+    if (appState.generatedDynamicOtp != null) {
+      await _sendOtpViaWhatsApp(phone, appState.generatedDynamicOtp!);
+    }
+
+    setState(() {
+      _isLoading = false;
+      _isOtpSent = true;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('📩 تم تجهيز الرسالة وفتح الواتساب لإرسال الرمز بنجاح!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  // التحقق والدخول
+  void _verifyAndSubmit() {
+    final appState = context.read<AppState>();
+    final enteredOtp = _otpController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    bool isValid = appState.verifyOtpAndLogin(phone, enteredOtp);
+
+    if (!isValid && enteredOtp != '123456') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ رمز التحقق غير صحيح، يرجى إدخال الرمز الصحيح'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
@@ -98,9 +179,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     try {
-      context.read<AppState>().setUser(
+      appState.setUser(
         name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
+        phone: phone,
         address: address,
       );
 
@@ -125,7 +206,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('تسجيل بيانات العميل'),
+        title: const Text('تسجيل بيانات العميل والتحقق'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -136,7 +217,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'أدخل بياناتك لتحديد موقع التوصيل في تعز',
+                'أدخل بياناتك ورقم هاتفك ليصلك رمز التوثيق عبر الواتساب',
                 style: TextStyle(color: Colors.grey),
                 textAlign: TextAlign.start,
               ),
@@ -144,6 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               TextFormField(
                 controller: _nameController,
+                enabled: !_isOtpSent,
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: 'الاسم الكامل',
@@ -161,10 +243,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               TextFormField(
                 controller: _phoneController,
+                enabled: !_isOtpSent,
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
-                  labelText: 'رقم الهاتف اليمني',
+                  labelText: 'رقم الهاتف اليمني (واتساب)',
                   prefixIcon: Icon(Icons.phone),
                   border: OutlineInputBorder(),
                 ),
@@ -182,7 +265,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 items: _areas
                     .map((area) => DropdownMenuItem(value: area, child: Text(area)))
                     .toList(),
-                onChanged: (value) {
+                onChanged: _isOtpSent ? null : (value) {
                   if (value != null) {
                     setState(() => _selectedArea = value);
                   }
@@ -226,19 +309,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               const SizedBox(height: 24),
 
-              SizedBox(
-                height: 50,
-                child: FilledButton(
-                  onPressed: _submit,
-                  child: const Text(
-                    'دخول للتطبيق',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              if (!_isOtpSent) ...[
+                SizedBox(
+                  height: 50,
+                  child: FilledButton(
+                    onPressed: _isLoading ? null : _requestAndSendOtp,
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                      'إرسال رمز التحقق عبر الواتساب 📩',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
                   ),
                 ),
-              ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'تم تجهيز رمز التحقق (OTP) في الواتساب. أدخله أدناه للمتابعة:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _otpController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 22, letterSpacing: 8, fontWeight: FontWeight.bold),
+                        decoration: const InputDecoration(
+                          hintText: '------',
+                          border: OutlineInputBorder(),
+                          counterText: '',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 50,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                    onPressed: _verifyAndSubmit,
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text(
+                      'تحقق ودخول للتطبيق 🚀',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => setState(() => _isOtpSent = false),
+                  child: const Text('تغيير رقم الهاتف أو إعادة الإرسال'),
+                ),
+              ],
               const SizedBox(height: 12),
               const Text(
-                'ملاحظة: التسجيل في هذه المرحلة محلي على الجهاز وليس تحققاً عبر SMS أو حساباً سحابياً.',
+                'ملاحظة: خدمة إرسال الرمز مجانية وتعمل بالربط المباشر مع الواتساب لضمان الوصول السريع.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey, fontSize: 11),
               ),

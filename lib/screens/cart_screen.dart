@@ -62,23 +62,25 @@ class _CartScreenState extends State<CartScreen> {
           ElevatedButton(
             onPressed: () async {
               if (_formKey.currentState!.validate()) {
-                appState.setCustomerInfo(
-                  _nameController.text,
-                  _phoneController.text,
-                  _addressController.text,
-                );
-                Navigator.pop(ctx);
+                // تجميع وصف المنتجات من السلة بدقة
+                final itemsDescription = appState.cartItems
+                    .map((item) => '${item.name} (${item.quantity})')
+                    .join(', ');
 
-                final success = await appState.submitOrder();
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم إرسال الطلب بنجاح!')),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم تأكيد الطلب التجريبي بنجاح')),
-                  );
-                }
+                // استدعاء دالة createOrder الحقيقية لترسل الطلب وتحفظ العميل في Supabase
+                await appState.createOrder(
+                  customerName: _nameController.text.trim(),
+                  phone: _phoneController.text.trim(),
+                  address: _addressController.text.trim(),
+                  itemsDesc: itemsDescription.isNotEmpty ? itemsDescription : 'طلب عام من السلة',
+                  productsTotal: appState.totalAmount,
+                );
+
+                Navigator.pop(ctx); // إغلاق نافذة الحوار
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('تم إرسال الطلب وحفظ بياناتك بنجاح! 🚀')),
+                );
               }
             },
             child: const Text('تأكيد وإرسال'),
@@ -133,7 +135,7 @@ class _CartScreenState extends State<CartScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('إجمالي القطع:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('${appState.totalItemsCount} قطعة'),
+                    Text('${appState.totalCartItemsCount} قطعة'),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -141,7 +143,7 @@ class _CartScreenState extends State<CartScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('الإجمالي المالي:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('${appState.totalPrice} ر.ي'),
+                    Text('${appState.totalAmount} ر.ي'),
                   ],
                 ),
                 const SizedBox(height: 12),
