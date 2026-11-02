@@ -40,12 +40,18 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     final appState = Provider.of<AppState>(context, listen: false);
     appState.setCustomGeneratedOtp(_phoneController.text, generatedOtp);
 
-    // 2. رقم الواتساب التجاري الخاص بك أو المتجر (استبدله برقمك المطلوب)
-    String shopWhatsAppNumber = "967770000000";
-    String message = "مرحباً، أريد تفعيل حسابي في تطبيق تعز إكسبريس. رمز التحقق الخاص بي هو: $generatedOtp";
+    // 2. تجهيز رسالة الواتساب للرقم المدخل
+    String formattedPhone = phone.trim();
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '967${formattedPhone.substring(1)}';
+    } else if (!formattedPhone.startsWith('967')) {
+      formattedPhone = '967$formattedPhone';
+    }
+
+    String message = "مرحباً، رمز التحقق الخاص بك لتطبيق تعز إكسبريس هو: $generatedOtp";
 
     final Uri whatsappUri = Uri.parse(
-      "https://wa.me/$shopWhatsAppNumber?text=${Uri.encodeComponent(message)}",
+      "https://wa.me/$formattedPhone?text=${Uri.encodeComponent(message)}",
     );
 
     if (await canLaunchUrl(whatsappUri)) {
@@ -158,8 +164,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: () {
-                        // التحقق من تطابق الكود المدخل مع الكود المولد (أو رمز الطوارئ 123456)
-                        if (_otpController.text == generatedOtp || _otpController.text == '123456') {
+                        // التحقق من تطابق الكود المدخل مع الكود المولد حصرياً
+                        if (_otpController.text == generatedOtp) {
                           setState(() => step = 3);
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('رمز التحقق غير صحيح!')));
@@ -169,7 +175,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                   ],
 
-                  // الخطوة 3: إدخال الاسم والموقع
+                  // الخطوة 3: إدخال الاسم والموقع وحفظه في Supabase
                   if (step == 3) ...[
                     const Text('أدخل بياناتك الشخصية لإتمام التسجيل', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 15),
@@ -222,7 +228,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       onPressed: () {
                         if (_nameController.text.isNotEmpty && _addressController.text.isNotEmpty) {
                           appState.saveUserProfileDetails(_nameController.text, _addressController.text);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تفعيل الحساب بنجاح!')));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تفعيل الحساب وحفظه في قاعدة البيانات بنجاح! ✅')));
                           if (widget.onLoginSuccess != null) {
                             widget.onLoginSuccess!();
                           } else {
