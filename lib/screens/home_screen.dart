@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../models/cart_item_model.dart';
 import '../models/product_model.dart';
+import '../widgets/fast_app_logo.dart';
 import 'admin_screen.dart';
 import 'customer/checkout_screen.dart';
 import 'auth/phone_auth_screen.dart';
@@ -54,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           content: const Text(
-            'هل أنت متأكد أنك تريد الخروج من تطبيق تعز إكسبرس؟',
+            'هل أنت متأكد أنك تريد الخروج من تطبيق FAST؟',
             style: TextStyle(color: Colors.grey, fontSize: 14),
           ),
           actions: [
@@ -62,7 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
               onPressed: () {
                 Navigator.pop(context);
-                // إغلاق التطبيق
               },
               child: const Text('نعم', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
             ),
@@ -175,9 +175,21 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: themeBg,
           appBar: AppBar(
             backgroundColor: cardBg,
-            title: const Text(
-              'تعز إكسبرس – Taiz Express (تعز)',
-              style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold),
+            title: Row(
+              children: [
+                const SizedBox(
+                  width: 35,
+                  height: 35,
+                  child: FittedBox(
+                    child: FastAppLogo(),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'FAST – تعز',
+                  style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             actions: [
               IconButton(
@@ -759,7 +771,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(profile['name'] ?? 'عميل تعز إكسبرس', style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(profile['name'] ?? 'عميل FAST', style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 3),
                     Text('📞 ${profile['phone']} | 📍 تعز', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                     if (profile['address'] != null && profile['address'].toString().isNotEmpty)
@@ -781,7 +793,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }),
         _buildProfileItem(Icons.location_city, 'المدينة (تعز - اليمن - حصرياً)', cardBg, textColor, () {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تطبيق تعز إكسبرس مخصص لخدمة مدينة تعز بكل حب 🌟')),
+            const SnackBar(content: Text('تطبيق FAST مخصص لخدمة مدينة تعز بكل سرعة 🌟')),
           );
         }),
         _buildProfileItem(Icons.bookmark_added, 'عناويني ومواقع التوصيل المحفوظة', cardBg, textColor, () {
@@ -808,7 +820,7 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context) => AlertDialog(
               backgroundColor: cardBg,
               title: Text('العروض الترويجية', style: TextStyle(color: textColor)),
-              content: const Text('ترقبوا أقوى خصومات التوصيل ومجانيات المطاعم قريباً في تعز! 🎁', style: TextStyle(color: Colors.grey)),
+              content: const Text('ترقبوا أقوى خصومات التوصيل ومجانيات المطاعم قريباً في تعز مع FAST! 🎁', style: TextStyle(color: Colors.grey)),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق', style: TextStyle(color: Colors.amber)))
               ],
@@ -817,7 +829,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }),
         _buildProfileItem(Icons.share, 'مشاركة التطبيق مع الأصدقاء', cardBg, textColor, () {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم نسخ رابط تطبيق تعز إكسبرس للمشاركة! 🚀')),
+            const SnackBar(content: Text('تم نسخ رابط تطبيق FAST للمشاركة! 🚀')),
           );
         }),
         _buildProfileItem(Icons.help_outline, 'مركز المساعدة والأسئلة الشائعة', cardBg, textColor, () {
@@ -827,7 +839,7 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: cardBg,
               title: Text('كيف نعمل؟', style: TextStyle(color: textColor)),
               content: const Text(
-                '1. تختار منتجاتك أو تطلب طلباً خاصاً.\n2. تحدد الإدارة سعر التوصيل.\n3. توافق على التسعير ليذهب الطلب للمندوب.\n4. يستلم طلبك حتى باب منزلك!',
+                '1. تختار منتجاتك أو تطلب طلباً خاصاً.\n2. تحدد الإدارة سعر التوصيل.\n3. توافق على التسعير ليذهب الطلب للمندوب.\n4. يستلم طلبك حتى باب منزلك بكل سرعة!',
                 style: TextStyle(color: Colors.grey),
               ),
               actions: [
