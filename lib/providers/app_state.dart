@@ -36,8 +36,9 @@ class AppState extends ChangeNotifier {
     listenToOrdersRealtime();
   }
 
-  int startHour = 11;
-  int endHour = 22;
+  // أوقات الدوام (قابل للتعديل بحسب رغبتك ليعمل لدى الطرفين بانتظام)
+  int startHour = 8;
+  int endHour = 24;
 
   bool isDarkMode = true;
   void toggleTheme() {
@@ -60,9 +61,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // دالة متوافقة ومحدثة لفحص حالة الدوام للطرفين لحظياً
   bool get isStoreOpen {
     final now = DateTime.now();
-    return now.hour >= startHour && now.hour < endHour;
+    final currentHour = now.hour;
+    if (endHour > startHour) {
+      return currentHour >= startHour && currentHour < endHour;
+    } else {
+      return currentHour >= startHour || currentHour < endHour;
+    }
   }
 
   final String adminPassword = 'maeen775145534@';
@@ -114,7 +121,6 @@ class AppState extends ChangeNotifier {
   Future<bool> sendOtpViaServerWhatsApp(String recipientPhone) async {
     if (generatedDynamicOtp == null) return false;
 
-    // تنسيق رقم الهاتف بالصيغة الدولية لليمن (967)
     String formattedPhone = recipientPhone.trim();
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '967${formattedPhone.substring(1)}';
@@ -128,9 +134,8 @@ class AppState extends ChangeNotifier {
         'رمز التحقق الخاص بك هو: *$generatedDynamicOtp*\n\n'
         'لا تشارك هذا الرمز مع أي شخص حفاظاً على أمان حسابك. 🚀';
 
-    // بيانات حساب UltraMsg أو WhatsApp API Gateway الخاص بك
-    const instanceId = 'YOUR_INSTANCE_ID'; // استبدل بـ Instance ID الخاص بك
-    const token = 'YOUR_API_TOKEN';        // استبدل بـ Token الخاص بك
+    const instanceId = 'YOUR_INSTANCE_ID';
+    const token = 'YOUR_API_TOKEN';
 
     final url = Uri.parse('https://api.ultramsg.com/$instanceId/messages/chat');
 
@@ -183,7 +188,6 @@ class AppState extends ChangeNotifier {
       String phone = userProfile!['phone'] ?? '';
 
       try {
-        // الحفظ الفعلي في جدول customers في Supabase مطابَقاً لأسماء الأعمدة (phone, name, city)
         await supabase.from('customers').upsert({
           'phone': phone,
           'name': name,
