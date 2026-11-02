@@ -162,6 +162,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       ),
                       onPressed: () {
                         if (_otpController.text == generatedOtp) {
+                          // تفعيل دالة التحقق وإنشاء جلسة مؤقتة برقم الهاتف لكي يتم حفظها لاحقاً
+                          appState.verifyOtpAndLogin(_phoneController.text, generatedOtp);
                           setState(() => step = 3);
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('رمز التحقق غير صحيح!')));
@@ -224,9 +226,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         minimumSize: const Size(double.infinity, 50),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         if (_nameController.text.isNotEmpty && _addressController.text.isNotEmpty) {
-                          appState.saveUserProfileDetails(_nameController.text, _addressController.text);
+                          // حفظ البيانات في قاعدة البيانات وجلسة التطبيق نهائياً
+                          await appState.saveUserProfileDetails(_nameController.text, _addressController.text);
                           
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('تم تفعيل الحساب وحفظه في قاعدة البيانات بنجاح! ✅')),
