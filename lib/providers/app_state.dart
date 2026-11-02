@@ -31,14 +31,62 @@ class AppState extends ChangeNotifier {
   AppState() {
     _loadAdminSession();
     _loadCourierSession();
+    fetchStoreSettings(); // جلب أوقات الدوام من السيرفر عند بدء التشغيل
     fetchProductsFromSupabase();
     fetchCouriersFromSupabase();
     listenToOrdersRealtime();
+    listenToStoreSettingsRealtime(); // الاستماع الفوري لأي تغيير في أوقات الدوام من المشرف
   }
 
-  // أوقات الدوام (قابل للتعديل بحسب رغبتك ليعمل لدى الطرفين بانتظام)
   int startHour = 8;
   int endHour = 24;
+
+  // دالة لجلب أوقات العمل من جدول settings في Supabase
+  Future<void> fetchStoreSettings() async {
+    try {
+      final response = await supabase.from('settings').select().maybeSingle();
+      if (response != null) {
+        startHour = int.tryParse(response['start_hour'].toString()) ?? 8;
+        endHour = int.tryParse(response['end_hour'].toString()) ?? 24;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('⚠️ خطأ في جلب إعدادات الدوام من Supabase: $e');
+    }
+  }
+
+  // الاستماع اللحظي لتغييرات أوقات الدوام بين المشرف والعميل
+  void listenToStoreSettingsRealtime() {
+    try {
+      supabase.from('settings').stream(primaryKey: ['id']).listen((data) {
+        if (data.isNotEmpty) {
+          startHour = int.tryParse(data.first['start_hour'].toString()) ?? 8;
+          endHour = int.tryParse(data.first['end_hour'].toString()) ?? 24;
+          notifyListeners();
+        }
+      });
+    } catch (e) {
+      debugPrint('⚠️ خطأ في الاستماع اللحظي للإعدادات: $e');
+    }
+  }
+
+  // دالة تحديث أوقات الدوام وحفظها سحابياً لكي تنعكس عند الطرفين فوراً
+  Future<void> updateStoreSettings(int start, int end) async {
+    startHour = start;
+    endHour = end;
+    notifyListeners();
+
+    try {
+      await supabase.from('settings').upsert({
+        'id': 1, // صف إعدادات المتجر الثابت
+        'start_hour': start,
+        'end_hour': end,
+      });
+      debugPrint('✅ تم تحديث وحفظ أوقات الدوام سحابياً بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في حفظ أوقات الدوام في Supabase: $e');
+    }
+  }
 
   bool isDarkMode = true;
   void toggleTheme() {
@@ -55,13 +103,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setWorkingHours(int start, int end) {
-    startHour = start;
-    endHour = end;
-    notifyListeners();
-  }
-
-  // دالة متوافقة ومحدثة لفحص حالة الدوام للطرفين لحظياً
+  // دالة فحص حالة المتجر بناءً على الساعات المحددة
   bool get isStoreOpen {
     final now = DateTime.now();
     final currentHour = now.hour;
@@ -104,20 +146,17 @@ class AppState extends ChangeNotifier {
   Map<String, String>? userProfile;
   String? generatedDynamicOtp;
 
-  // 1. توليد كود التحقق OTP
   void requestOtpForPhone(String phone) {
     final randomOtp = (100000 + Random().nextInt(900000)).toString();
     generatedDynamicOtp = randomOtp;
     notifyListeners();
   }
 
-  // تعيين الكود المولد يدوياً من واجهة الواتساب
   void setCustomGeneratedOtp(String phone, String otp) {
     generatedDynamicOtp = otp;
     notifyListeners();
   }
 
-  // 2. دالة إرسال رسالة الواتساب الحقيقية من سيرفر إلى سيرفر لرقم العميل
   Future<bool> sendOtpViaServerWhatsApp(String recipientPhone) async {
     if (generatedDynamicOtp == null) return false;
 
@@ -143,43 +182,30 @@ class AppState extends ChangeNotifier {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'token': token,
-          'to': formattedPhone,
-          'body': messageText,
-        },
+        body: {'token': token, 'to': formattedPhone, 'body': messageText},
       );
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         if (jsonResponse['sent'] == 'true' || jsonResponse['status'] == 'success') {
-          debugPrint('✅ تم إرسال الرمز لرقم العميل الواتساب بنجاح: $formattedPhone');
           return true;
         }
       }
-      debugPrint('❌ فشل إرسال رسالة الواتساب: ${response.body}');
       return false;
     } catch (e) {
-      debugPrint('❌ خطأ في الاتصال بسيرفر الواتساب: $e');
       return false;
     }
   }
 
   bool verifyOtpAndLogin(String phone, String enteredOtp) {
     if (generatedDynamicOtp != null && enteredOtp == generatedDynamicOtp) {
-      userProfile = {
-        'phone': phone,
-        'name': '',
-        'city': currentCity,
-        'address': '',
-      };
+      userProfile = {'phone': phone, 'name': '', 'city': currentCity, 'address': ''};
       notifyListeners();
       return true;
     }
     return false;
   }
 
-  // دالة حفظ بيانات المستخدم في جدول Supabase مباشرة وضمان عدم تكرار تسجيل الدخول
   Future<void> saveUserProfileDetails(String name, String address) async {
     if (userProfile != null) {
       userProfile!['name'] = name;
@@ -194,9 +220,9 @@ class AppState extends ChangeNotifier {
           'city': address,
         }, onConflict: 'phone');
 
-        debugPrint('✅ تم حفظ بيانات العميل في قاعدة بيانات Supabase بنجاح');
+        debugPrint('✅ تم حفظ بيانات العميل في Supabase بنجاح');
       } catch (e) {
-        debugPrint('❌ خطأ في حفظ بيانات العميل في Supabase: $e');
+        debugPrint('❌ خطأ في حفظ بيانات العميل: $e');
       }
 
       notifyListeners();
@@ -250,14 +276,12 @@ class AppState extends ChangeNotifier {
       });
       fetchCouriersFromSupabase();
     } catch (e) {
-      debugPrint('خطأ في إضافة المندوب لقاعدة البيانات: $e');
+      debugPrint('خطأ في إضافة المندوب: $e');
     }
   }
 
   bool loginCourier(String username, String password) {
-    final index = couriers.indexWhere(
-          (c) => c['username'] == username && c['password'] == password,
-    );
+    final index = couriers.indexWhere((c) => c['username'] == username && c['password'] == password);
     if (index != -1) {
       couriers[index]['is_logged_in'] = true;
       currentCourier = couriers[index];
@@ -289,13 +313,8 @@ class AppState extends ChangeNotifier {
   final List<CartItemModel> _cartItems = [];
   List<CartItemModel> get cartItems => _cartItems;
 
-  int get totalCartItemsCount {
-    return _cartItems.fold(0, (sum, item) => sum + item.quantity);
-  }
-
-  double get totalAmount {
-    return _cartItems.fold(0.0, (sum, item) => sum + (item.price * item.quantity));
-  }
+  int get totalCartItemsCount => _cartItems.fold(0, (sum, item) => sum + item.quantity);
+  double get totalAmount => _cartItems.fold(0.0, (sum, item) => sum + (item.price * item.quantity));
 
   int getProductQuantityInCart(String productId) {
     final index = _cartItems.indexWhere((item) => item.id == productId);
@@ -367,7 +386,7 @@ class AppState extends ChangeNotifier {
       });
       fetchProductsFromSupabase();
     } catch (e) {
-      debugPrint('خطأ في إضافة المنتج لقاعدة البيانات: $e');
+      debugPrint('خطأ في إضافة المنتج: $e');
     }
   }
 
@@ -398,11 +417,7 @@ class AppState extends ChangeNotifier {
   List notifications = [];
 
   void addNotification(String title, String body) {
-    notifications.insert(0, {
-      'title': title,
-      'body': body,
-      'time': DateTime.now(),
-    });
+    notifications.insert(0, {'title': title, 'body': body, 'time': DateTime.now()});
     notifyListeners();
   }
 
@@ -416,10 +431,10 @@ class AppState extends ChangeNotifier {
         orders = data;
         notifyListeners();
       }, onError: (error) {
-        debugPrint('⚠️ خطأ في الاستماع للطلبات لحظياً: $error');
+        debugPrint('⚠️ خطأ في الاستماع للطلبات: $error');
       });
     } catch (e) {
-      debugPrint('❌ خطأ في جلب أو الاستماع للطلبات: $e');
+      debugPrint('❌ خطأ في الاستماع للطلبات: $e');
     }
   }
 
@@ -440,8 +455,6 @@ class AppState extends ChangeNotifier {
     );
 
     chatMessages.add(newMsg);
-    String roleTitle = senderRole == 'admin' ? 'الإدارة' : (senderRole == 'courier' ? 'المندوب' : 'العميل');
-    addNotification('💬 رسالة جديدة من $roleTitle (طلب #$orderId)', messageText);
     notifyListeners();
   }
 
@@ -452,25 +465,17 @@ class AppState extends ChangeNotifier {
     required String itemsDesc,
     required double productsTotal,
   }) async {
-    userProfile = {
-      'phone': phone,
-      'name': customerName,
-      'city': currentCity,
-      'address': address,
-    };
-
+    userProfile = {'phone': phone, 'name': customerName, 'city': currentCity, 'address': address};
     final orderId = 'TX-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
     try {
-      final customerResponse = await supabase.from('customers').upsert({
+      await supabase.from('customers').upsert({
         'phone': phone,
         'name': customerName,
         'city': address,
       }, onConflict: 'phone');
-      debugPrint('✅ تم حفظ بيانات العميل بنجاح: $customerResponse');
     } catch (e) {
-      debugPrint('❌ خطأ دالة حفظ العميل في جدول customers: $e');
-      addNotification('⚠️ خطأ في حفظ العميل', 'التفاصيل: $e');
+      debugPrint('خطأ في حفظ العميل: $e');
     }
 
     final orderData = {
@@ -491,26 +496,17 @@ class AppState extends ChangeNotifier {
 
     try {
       await supabase.from('orders').insert(orderData);
-      clearCacheAndCart();
+      _cartItems.clear();
       notifyListeners();
-      debugPrint('✅ تم إنشاء الطلب #$orderId بنجاح في قاعدة البيانات');
     } catch (e) {
-      debugPrint('❌ خطأ في إنشاء الطلب: $e');
-      addNotification('⚠️ خطأ في إنشاء الطلب', 'التفاصيل: $e');
+      debugPrint('خطأ في إنشاء الطلب: $e');
     }
-  }
-
-  void clearCacheAndCart() {
-    _cartItems.clear();
   }
 
   Future<void> setOrderDeliveryFee(String orderId, double fee, String courierName) async {
     try {
       final order = orders.firstWhere((o) => o['id'].toString() == orderId, orElse: () => null);
-      double productsTotal = 0.0;
-      if (order != null) {
-        productsTotal = double.tryParse(order['products_total'].toString()) ?? 0.0;
-      }
+      double productsTotal = order != null ? double.tryParse(order['products_total'].toString()) ?? 0.0 : 0.0;
       double totalPrice = productsTotal + fee;
 
       await supabase.from('orders').update({
@@ -519,27 +515,18 @@ class AppState extends ChangeNotifier {
         'assigned_courier': courierName.trim(),
         'status': 'waitingCourierApproval',
         'is_fee_sent': true,
-        'admin_message': 'تم تحديد رسوم التوصيل ($fee ر.ي) وإسناد الطلب للمندوب ($courierName) بنجاح ⏳',
+        'admin_message': 'تم تحديد رسوم التوصيل ($fee ر.ي) وإسناد الطلب للمندوب بنجاح ⏳',
       }).eq('id', orderId);
-
-      addNotification('🔔 تم إسناد الطلب #$orderId للمندوب', 'تم تحديد الرسوم وإرسال الطلب للمندوب $courierName بنجاح.');
-      debugPrint('✅ تم تحديث الطلب وإرساله للمندوب: $courierName بنجاح');
     } catch (e) {
-      debugPrint('❌ خطأ أثناء تحديث رسوم ومندوب الطلب: $e');
+      debugPrint('خطأ تحديث الرسوم: $e');
     }
-  }
-
-  Future<void> enableOrderFeeEditing(String orderId) async {
-    await supabase.from('orders').update({'is_fee_sent': false}).eq('id', orderId);
   }
 
   Future<void> customerConfirmOrder(String orderId) async {
     await supabase.from('orders').update({
       'status': 'waitingCourierApproval',
-      'admin_message': 'تم تأكيد الطلب من قِبل العميل، وبانتظار قبول المندوب ⏳',
+      'admin_message': 'تم تأكيد الطلب من قِبل العميل ⏳',
     }).eq('id', orderId);
-
-    addNotification('✅ تم تأكيد الطلب #$orderId', 'تم إرسال الطلب للمندوب المعين بانتظار قبوله.');
   }
 
   Future<void> customerCancelOrder(String orderId) async {
@@ -552,16 +539,15 @@ class AppState extends ChangeNotifier {
   Future<void> courierRespondToOrder(String orderId, bool accepted) async {
     final order = orders.firstWhere((o) => o['id'].toString() == orderId, orElse: () => null);
     if (order != null) {
-      final courierName = order['assigned_courier'];
       if (accepted) {
         await supabase.from('orders').update({
           'status': 'onTheWay',
-          'admin_message': 'المندوب ($courierName) قَبِل الطلب وهو في الطريق الآن 🟢',
+          'admin_message': 'المندوب قَبِل الطلب وهو في الطريق 🟢',
         }).eq('id', orderId);
       } else {
         await supabase.from('orders').update({
           'status': 'rejectedByCourier',
-          'admin_message': '⚠️ المندوب ($courierName) رَفَض الطلب! يرجى إسناده لمندوب آخر.',
+          'admin_message': '⚠️ المندوب رَفَض الطلب!',
           'assigned_courier': 'لم يتم التعيين',
           'is_fee_sent': false,
         }).eq('id', orderId);
@@ -572,20 +558,14 @@ class AppState extends ChangeNotifier {
   Future<void> courierUpdateArrival(String orderId) async {
     await supabase.from('orders').update({
       'status': 'arrived',
-      'admin_message': 'المندوب وصل لموقع العميل (أبلغ العميل الآن) 📍',
+      'admin_message': 'المندوب وصل لموقع العميل 📍',
     }).eq('id', orderId);
-    addNotification('المندوب وصل!', 'وصل المندوب إلى موقع العميل للطلب #$orderId');
   }
 
   Future<void> markOrderDelivered(String orderId) async {
-    final order = orders.firstWhere((o) => o['id'].toString() == orderId, orElse: () => null);
-    if (order != null) {
-      await supabase.from('orders').update({
-        'status': 'delivered',
-        'admin_message': 'تم تسليم الطلب بنجاح للعميل ✅',
-      }).eq('id', orderId);
-
-      addNotification('تم تسليم الطلب', 'تم تسليم الطلب #$orderId بنجاح للعميل.');
-    }
+    await supabase.from('orders').update({
+      'status': 'delivered',
+      'admin_message': 'تم تسليم الطلب بنجاح ✅',
+    }).eq('id', orderId);
   }
 }
