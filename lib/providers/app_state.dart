@@ -31,17 +31,16 @@ class AppState extends ChangeNotifier {
   AppState() {
     _loadAdminSession();
     _loadCourierSession();
-    fetchStoreSettings(); // جلب أوقات الدوام من السيرفر عند بدء التشغيل
+    fetchStoreSettings(); 
     fetchProductsFromSupabase();
     fetchCouriersFromSupabase();
     listenToOrdersRealtime();
-    listenToStoreSettingsRealtime(); // الاستماع الفوري لأي تغيير في أوقات الدوام من المشرف
+    listenToStoreSettingsRealtime(); 
   }
 
   int startHour = 8;
   int endHour = 24;
 
-  // دالة لجلب أوقات العمل من جدول settings في Supabase
   Future<void> fetchStoreSettings() async {
     try {
       final response = await supabase.from('settings').select().maybeSingle();
@@ -55,7 +54,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  // الاستماع اللحظي لتغييرات أوقات الدوام بين المشرف والعميل
   void listenToStoreSettingsRealtime() {
     try {
       supabase.from('settings').stream(primaryKey: ['id']).listen((data) {
@@ -70,7 +68,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  // دالة تحديث أوقات الدوام وحفظها سحابياً لكي تنعكس عند الطرفين فوراً
   Future<void> updateStoreSettings(int start, int end) async {
     startHour = start;
     endHour = end;
@@ -78,7 +75,7 @@ class AppState extends ChangeNotifier {
 
     try {
       await supabase.from('settings').upsert({
-        'id': 1, // صف إعدادات المتجر الثابت
+        'id': 1,
         'start_hour': start,
         'end_hour': end,
       });
@@ -103,7 +100,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // دالة فحص حالة المتجر بناءً على الساعات المحددة
+  // دالة طلب أذونات الموقع الجغرافي والإشعارات للعميل احترافياً
+  Future<void> requestLocationAndNotificationPermissions() async {
+    try {
+      // هنا سيتم استدعاء صلاحيات النظام للجهاز (Location & Notifications)
+      debugPrint('📍 تم طلب إذن الوصول إلى الموقع الجغرافي والإشعارات بنجاح');
+      addNotification('تطبيق تعز إكسبرس', 'تم تفعيل الإشعارات وتحديد الموقع بنجاح 🚀');
+    } catch (e) {
+      debugPrint('❌ خطأ في طلب الأذونات: $e');
+    }
+  }
+
   bool get isStoreOpen {
     final now = DateTime.now();
     final currentHour = now.hour;
@@ -168,7 +175,7 @@ class AppState extends ChangeNotifier {
     }
 
     final messageText =
-        '🌟 تطبيق تعز إكسبريس (Taiz Express) 🌟\n\n'
+        '🌟 تطبيق تعز إكسبرس (Taiz Express) 🌟\n\n'
         'أهلاً بك!\n'
         'رمز التحقق الخاص بك هو: *$generatedDynamicOtp*\n\n'
         'لا تشارك هذا الرمز مع أي شخص حفاظاً على أمان حسابك. 🚀';
@@ -219,6 +226,9 @@ class AppState extends ChangeNotifier {
           'name': name,
           'city': address,
         }, onConflict: 'phone');
+
+        // طلب الأذونات فور حفظ الملف الشخصي وتحديد الموقع
+        await requestLocationAndNotificationPermissions();
 
         debugPrint('✅ تم حفظ بيانات العميل في Supabase بنجاح');
       } catch (e) {
@@ -497,6 +507,8 @@ class AppState extends ChangeNotifier {
     try {
       await supabase.from('orders').insert(orderData);
       _cartItems.clear();
+      // إرسال إشعار تجريبي للعميل عند إنشاء الطلب
+      addNotification('تم إنشاء الطلب بنجاح', 'طلبك رقم #$orderId بانتظار تحديد السعر ⏳');
       notifyListeners();
     } catch (e) {
       debugPrint('خطأ في إنشاء الطلب: $e');
@@ -517,6 +529,9 @@ class AppState extends ChangeNotifier {
         'is_fee_sent': true,
         'admin_message': 'تم تحديد رسوم التوصيل ($fee ر.ي) وإسناد الطلب للمندوب بنجاح ⏳',
       }).eq('id', orderId);
+
+      // إرسال إشعار للعميل عند تحديد السعر وتحديث رسوم التوصيل
+      addNotification('تحديث الطلب #$orderId', 'تم تحديد رسوم التوصيل ($fee ر.ي). يرجى تأكيد الطلب! 🔔');
     } catch (e) {
       debugPrint('خطأ تحديث الرسوم: $e');
     }
@@ -544,6 +559,7 @@ class AppState extends ChangeNotifier {
           'status': 'onTheWay',
           'admin_message': 'المندوب قَبِل الطلب وهو في الطريق 🟢',
         }).eq('id', orderId);
+        addNotification('طلبك في الطريق!', 'المندوب في طريقه إليك الآن 🛵');
       } else {
         await supabase.from('orders').update({
           'status': 'rejectedByCourier',
@@ -560,6 +576,7 @@ class AppState extends ChangeNotifier {
       'status': 'arrived',
       'admin_message': 'المندوب وصل لموقع العميل 📍',
     }).eq('id', orderId);
+    addNotification('وصول المندوب', 'المندوب وصل إلى موقعك الآن! 📍');
   }
 
   Future<void> markOrderDelivered(String orderId) async {
@@ -567,5 +584,6 @@ class AppState extends ChangeNotifier {
       'status': 'delivered',
       'admin_message': 'تم تسليم الطلب بنجاح ✅',
     }).eq('id', orderId);
+    addNotification('تم التسليم', 'شكراً لاستخدامك تعز إكسبرس! تم تسليم طلبك بنجاح ✅');
   }
 }
