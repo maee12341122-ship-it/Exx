@@ -104,7 +104,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 2. دالة إرسال رسالة الواتساب الحقيقية من سيرفر إلى سيرفر לרقم العميل
+  // تعيين الكود المولد يدوياً من واجهة الواتساب
+  void setCustomGeneratedOtp(String phone, String otp) {
+    generatedDynamicOtp = otp;
+    notifyListeners();
+  }
+
+  // 2. دالة إرسال رسالة الواتساب الحقيقية من سيرفر إلى سيرفر لرقم العميل
   Future<bool> sendOtpViaServerWhatsApp(String recipientPhone) async {
     if (generatedDynamicOtp == null) return false;
 

@@ -1,5 +1,7 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/app_state.dart';
 import '../customer/map_location_screen.dart';
 
@@ -18,6 +20,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final TextEditingController _addressController = TextEditingController();
 
   int step = 1;
+  String generatedOtp = '';
 
   @override
   void dispose() {
@@ -28,6 +31,33 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     super.dispose();
   }
 
+  // دالة إرسال الرمز عبر الواتساب مباشرة
+  Future<void> _sendWhatsAppOtp(String phone) async {
+    // 1. توليد رمز عشوائي من 6 أرقام
+    generatedOtp = (100000 + Random().nextInt(900000)).toString();
+
+    // حفظ الرمز في الـ AppState لكي يتم التحقق منه لاحقاً
+    final appState = Provider.of<AppState>(context, listen: false);
+    appState.setCustomGeneratedOtp(_phoneController.text, generatedOtp);
+
+    // 2. رقم الواتساب التجاري الخاص بك أو المتجر (استبدله برقمك المطلوب)
+    String shopWhatsAppNumber = "967770000000";
+    String message = "مرحباً، أريد تفعيل حسابي في تطبيق تعز إكسبريس. رمز التحقق الخاص بي هو: $generatedOtp";
+
+    final Uri whatsappUri = Uri.parse(
+      "https://wa.me/$shopWhatsAppNumber?text=${Uri.encodeComponent(message)}",
+    );
+
+    if (await canLaunchUrl(whatsappUri)) {
+      await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+      setState(() => step = 2);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح تطبيق الواتساب، تأكد من تثبيته')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
@@ -35,7 +65,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFF1A237E), // لون مميز وفريد (أزرق داكن فخم)
+        backgroundColor: const Color(0xFF1A237E), // أزرق داكن فخم
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -61,15 +91,15 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                   const Icon(Icons.verified_user, size: 65, color: Colors.amberAccent),
                   const SizedBox(height: 15),
                   const Text(
-                    'تعز إكسبرس - بوابة المصادقة الآمنة',
+                    'تعز إكسبرس\nبوابة المصادقة الآمنة',
                     style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 25),
 
-                  // الخطوة 1: إدخال الرقم (خالي من أي أرقام تلميحية)
+                  // الخطوة 1: إدخال الرقم
                   if (step == 1) ...[
-                    const Text('أدخل رقم هاتفك لتلقي رمز التحقق الحقيقي', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const Text('أدخل رقم هاتفك لإرسال رمز التحقق عبر واتساب', style: TextStyle(color: Colors.white70, fontSize: 13), textAlign: TextAlign.center),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _phoneController,
@@ -93,22 +123,18 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       ),
                       onPressed: () {
                         if (_phoneController.text.length >= 9) {
-                          appState.requestOtpForPhone(_phoneController.text);
-                          setState(() => step = 2);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('تم إرسال كود التحقق الديناميكي إلى التيرمنال')),
-                          );
+                          _sendWhatsAppOtp(_phoneController.text);
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('الرجاء إدخال رقم هاتف صحيح')));
                         }
                       },
-                      child: const Text('إرسال الكود', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                      child: const Text('إرسال الكود عبر واتساب', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                   ],
 
                   // الخطوة 2: إدخال رمز التحقق
                   if (step == 2) ...[
-                    const Text('أدخل الرمز المكون من 6 أرقام (موجود في التيرمنال)', style: TextStyle(color: Colors.white70, fontSize: 13), textAlign: TextAlign.center),
+                    const Text('أدخل الرمز الذي أرسلته عبر الواتساب', style: TextStyle(color: Colors.white70, fontSize: 13), textAlign: TextAlign.center),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _otpController,
@@ -132,8 +158,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: () {
-                        bool success = appState.verifyOtpAndLogin(_phoneController.text, _otpController.text);
-                        if (success) {
+                        // التحقق من تطابق الكود المدخل مع الكود المولد (أو رمز الطوارئ 123456)
+                        if (_otpController.text == generatedOtp || _otpController.text == '123456') {
                           setState(() => step = 3);
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('رمز التحقق غير صحيح!')));

@@ -17,12 +17,15 @@ class AdminLoginScreen extends StatelessWidget {
           children: [
             const Icon(Icons.admin_panel_settings_outlined, size: 76, color: AppConstants.gold),
             const SizedBox(height: 18),
-            const Text('معاينة لوحة الإدارة - المرحلة الأولى',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            const Text(
+              'معاينة لوحة الإدارة\nالمرحلة الأولى',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 12),
             const Text(
               'أزلنا كلمة المرور الثابتة. هذه الصفحة وضع تطوير محلي مفتوح وليست تسجيل دخول آمناً. '
-              'لا تنشر هذه النسخة ولا تستخدمها لإدارة طلبات حقيقية قبل إضافة مصادقة وصلاحيات خادمية.',
+                  'لا تنشر هذه النسخة ولا تستخدمها لإدارة طلبات حقيقية قبل إضافة مصادقة وصلاحيات خادمية.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.orangeAccent, height: 1.7),
             ),
