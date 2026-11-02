@@ -69,7 +69,7 @@ class _AdminScreenState extends State<AdminScreen> {
         backgroundColor: const Color(0xFF121212),
         appBar: AppBar(
           backgroundColor: const Color(0xFF1E1E1E),
-          title: const Text('لوحة تحكم المشرف - تعز إكسبرس', style: TextStyle(color: Colors.amber, fontSize: 16)),
+          title: const Text('لوحة تحكم المشرف - FAST', style: TextStyle(color: Colors.amber, fontSize: 16)),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout, color: Colors.redAccent),
@@ -135,9 +135,9 @@ class _AdminScreenState extends State<AdminScreen> {
                 ),
                 const Divider(color: Colors.grey),
                 Text('👤 العميل: ${order['customer_name']} (${order['phone']})', style: const TextStyle(color: Colors.white, fontSize: 13)),
-                Text('📍 العنوان: ${order['address']}', style: const TextStyle(color: Colors.white75, fontSize: 13)),
-                Text('🛒 المنتجات: ${order['items_description']}', style: const TextStyle(color: Colors.white75, fontSize: 13)),
-                Text('💰 سعر المنتجات: ${order['products_total']} ر.ي', style: const TextStyle(color: Colors.white75, fontSize: 13)),
+                Text('📍 العنوان: ${order['address']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text('🛒 المنتجات: ${order['items_description']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text('💰 سعر المنتجات: ${order['products_total']} ر.ي', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -386,7 +386,7 @@ class _AdminScreenState extends State<AdminScreen> {
               final start = int.tryParse(startController.text) ?? 8;
               final end = int.tryParse(endController.text) ?? 24;
               appState.updateStoreSettings(start, end);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث أوقات الدوام وحفظها سحابياً للطرفين بنجاح! ✅')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث أوقات الدوام وحفظها سحابياً بنجاح! ✅')));
             },
             child: const Text('حفظ وتحديث أوقات الدوام', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
