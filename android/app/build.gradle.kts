@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.example.taiz_express"
-    compileSdk = 35 // تم التحديث إلى 35 لتتوافق مع أحدث الحزم
+    compileSdk = 36 // تم التحديث إلى 36 لتتوافق مع أحدث متطلبات الحزم
 
     ndkVersion = flutter.ndkVersion
 
@@ -17,7 +17,7 @@ android {
     defaultConfig {
         applicationId = "com.example.taiz_express"
         minSdk = flutter.minSdkVersion
-        targetSdk = 35 // تم التحديث إلى 35
+        targetSdk = 36 // تم التحديث إلى 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
