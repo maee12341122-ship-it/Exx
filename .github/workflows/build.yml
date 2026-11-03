@@ -23,14 +23,32 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Recreate Android Directory Cleanly
+      - name: Recreate Android Directory & Configure SDK
         run: |
           flutter clean
           rm -rf android
           flutter create . --platforms=android --project-name=taiz_express
+          
+          # ضبط قيم compileSdk و minSdkVersion في ملف الإعدادات الحديث لضمان توافق الحزم
+          if [ -f "android/app/build.gradle.kts" ]; then
+            sed -i 's/compileSdk = .*/compileSdk = 34/g' android/app/build.gradle.kts
+            sed -i 's/minSdk = .*/minSdk = 21/g' android/app/build.gradle.kts
+            sed -i 's/targetSdk = .*/targetSdk = 34/g' android/app/build.gradle.kts
+          fi
+          if [ -f "android/app/build.gradle" ]; then
+            sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
+            sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
+            sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' android/app/build.gradle
+          fi
 
       - name: Get Dependencies
         run: flutter pub get
 
       - name: Build Release APK
-        run: flutter build apk --release --local-engine-src-path="" || flutter build apk --release
+        run: flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
