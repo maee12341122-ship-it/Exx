@@ -105,7 +105,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       keyboardType: TextInputType.phone,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        labelText: 'رقم الهاتف (مثال: 775145534)',
+                        // تم إزالة رقمك الشخصي واستبداله بمثال عام افتراضي
+                        labelText: 'رقم الهاتف (مثال: 770000000)',
                         labelStyle: const TextStyle(color: Colors.grey),
                         prefixIcon: const Icon(Icons.phone_android, color: primaryGold),
                         filled: true,
@@ -139,21 +140,20 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                               }
                               setState(() => _isLoading = true);
                               
+                              // توليد وطلب الرمز عبر الواتساب المباشر wa.me
                               appState.requestOtpForPhone(phone);
-                              bool sent = await appState.sendOtpViaServerWhatsApp(phone);
+                              await appState.sendOtpViaWhatsAppDirect(phone);
 
                               setState(() => _isLoading = false);
+                              setState(() => _isOtpSent = true);
 
-                              if (sent || true) {
-                                setState(() => _isOtpSent = true);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('تم إرسال رمز التحقق إلى الواتساب بنجاح! 📲')),
-                                );
-                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('تم فتح الواتساب لإرسال رمز التحقق بنجاح! 📲')),
+                              );
                             },
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.black)
-                          : const Text('إرسال رمز التحقق', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
+                          : const Text('إرسال رمز التحقق عبر الواتساب', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15)),
                     ),
                   ] else if (_isOtpSent && !_isProfileStep) ...[
                     const Text(
@@ -276,7 +276,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                             _nameController.text.trim(),
                             _addressController.text.trim(),
                           );
-                          // طلب أذونات الموقع والإشعارات تلقائياً عند إتمام التسجيل
                           await appState.requestLocationAndNotificationPermissions();
 
                           if (widget.onLoginSuccess != null) {
