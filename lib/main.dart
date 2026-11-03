@@ -5,33 +5,43 @@ import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // يمكنك هنا تهيئة Supabase إذا لم تكن قمت بذلك مسبقاً
+  
+  // يمكنك استبدال البيانات أدناه برابط ومفتاح مشروعك في Supabase إذا لزم الأمر
+  // try {
+  //   await Supabase.initialize(
+  //     url: 'YOUR_SUPABASE_URL',
+  //     anonKey: 'YOUR_SUPABASE_ANON_KEY',
+  //   );
+  // } catch (e) {
+  //   debugPrint('خطأ في تهيئة Supabase: $e');
+  // }
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppState()),
       ],
-      child: const TaizExpressApp(),
+      child: const FastApp(),
     ),
   );
 }
 
-class TaizExpressApp extends StatelessWidget {
-  const TaizExpressApp({Key? key}) : super(key: key);
+class FastApp extends StatelessWidget {
+  const FastApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
 
     return MaterialApp(
-      title: 'تعز إكسبرس - Taiz Express',
+      title: 'FAST – تعز',
       debugShowCheckedModeBanner: false,
       themeMode: appState.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
         brightness: Brightness.light,
         scaffoldBackgroundColor: Colors.grey[100],
         primaryColor: Colors.amber,
-        colorScheme: ColorScheme.light(
+        colorScheme: const ColorScheme.light(
           primary: Colors.amber,
           secondary: Colors.amber,
           surface: Colors.white,
