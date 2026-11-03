@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/cart_item_model.dart';
 import '../models/product_model.dart';
 
@@ -31,59 +32,16 @@ class AppState extends ChangeNotifier {
   AppState() {
     _loadAdminSession();
     _loadCourierSession();
-    fetchStoreSettings(); 
+    fetchStoreSettings();
     fetchProductsFromSupabase();
     fetchCouriersFromSupabase();
     listenToOrdersRealtime();
-    listenToStoreSettingsRealtime(); 
+    listenToStoreSettingsRealtime();
   }
 
   int startHour = 8;
   int endHour = 24;
-
-  Future<void> fetchStoreSettings() async {
-    try {
-      final response = await supabase.from('settings').select().maybeSingle();
-      if (response != null) {
-        startHour = int.tryParse(response['start_hour'].toString()) ?? 8;
-        endHour = int.tryParse(response['end_hour'].toString()) ?? 24;
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('⚠️ خطأ في جلب إعدادات الدوام من Supabase: $e');
-    }
-  }
-
-  void listenToStoreSettingsRealtime() {
-    try {
-      supabase.from('settings').stream(primaryKey: ['id']).listen((data) {
-        if (data.isNotEmpty) {
-          startHour = int.tryParse(data.first['start_hour'].toString()) ?? 8;
-          endHour = int.tryParse(data.first['end_hour'].toString()) ?? 24;
-          notifyListeners();
-        }
-      });
-    } catch (e) {
-      debugPrint('⚠️ خطأ في الاستماع اللحظي للإعدادات: $e');
-    }
-  }
-
-  Future<void> updateStoreSettings(int start, int end) async {
-    startHour = start;
-    endHour = end;
-    notifyListeners();
-
-    try {
-      await supabase.from('settings').upsert({
-        'id': 1,
-        'start_hour': start,
-        'end_hour': end,
-      });
-      debugPrint('✅ تم تحديث وحفظ أوقات الدوام سحابياً بنجاح');
-    } catch (e) {
-      debugPrint('❌ خطأ في حفظ أوقات الدوام في Supabase: $e');
-    }
-  }
+  String customerSupportPhone = '770000000'; // رقم افتراضي لخدمة العملاء (يمكن تعديله)
 
   bool isDarkMode = true;
   void toggleTheme() {
@@ -100,14 +58,65 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // دالة طلب أذونات الموقع الجغرافي والإشعارات للعميل احترافياً
-  Future<void> requestLocationAndNotificationPermissions() async {
+  // 1. فتح الواتساب المباشر عبر wa.me لترخيص الدخول
+  Future<void> sendOtpViaWhatsAppDirect(String phone) async {
+    if (generatedDynamicOtp == null) return;
+
+    String formattedPhone = phone.trim();
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '967${formattedPhone.substring(1)}';
+    } else if (!formattedPhone.startsWith('967')) {
+      formattedPhone = '967$formattedPhone';
+    }
+
+    final message = Uri.encodeComponent(
+      '🌟 تطبيق FAST - تعز 🌟\nرمز التحقق الخاص بك هو: *$generatedDynamicOtp*'
+    );
+
+    final whatsappUrl = Uri.parse("https://wa.me/$formattedPhone?text=$message");
+
     try {
-      // هنا سيتم استدعاء صلاحيات النظام للجهاز (Location & Notifications)
-      debugPrint('📍 تم طلب إذن الوصول إلى الموقع الجغرافي والإشعارات بنجاح');
-      addNotification('تطبيق تعز إكسبرس', 'تم تفعيل الإشعارات وتحديد الموقع بنجاح 🚀');
+      if (await canLaunchUrl(whatsappUrl)) {
+        await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+      }
     } catch (e) {
-      debugPrint('❌ خطأ في طلب الأذونات: $e');
+      debugPrint('❌ خطأ في فتح الواتساب: $e');
+    }
+  }
+
+  // 4. مشاركة التطبيق بنظام المشاركة المدمج بالجهاز
+  void shareApp() {
+    Share.share(
+      'حمل تطبيق FAST - أسرع خدمة توصيل في تعز! 🚀\nhttps://play.google.com/store/apps/details?id=com.fast.taiz',
+      subject: 'تطبيق FAST تعز',
+    );
+  }
+
+  // جلب إعدادات الدوام من جدول settings
+  Future<void> fetchStoreSettings() async {
+    try {
+      final response = await supabase.from('settings').select().maybeSingle();
+      if (response != null) {
+        startHour = int.tryParse(response['start_hour'].toString()) ?? 8;
+        endHour = int.tryParse(response['end_hour'].toString()) ?? 24;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('⚠️ خطأ في جلب إعدادات الدوام: $e');
+    }
+  }
+
+  void listenToStoreSettingsRealtime() {
+    try {
+      supabase.from('settings').stream(primaryKey: ['id']).listen((data) {
+        if (data.isNotEmpty) {
+          startHour = int.tryParse(data.first['start_hour'].toString()) ?? 8;
+          endHour = int.tryParse(data.first['end_hour'].toString()) ?? 24;
+          notifyListeners();
+        }
+      });
+    } catch (e) {
+      debugPrint('⚠️ خطأ في الاستماع للإعدادات: $e');
     }
   }
 
@@ -121,7 +130,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  final String adminPassword = 'maeen775145534@';
   bool isAdminLoggedIn = false;
 
   void _loadAdminSession() async {
@@ -131,7 +139,7 @@ class AppState extends ChangeNotifier {
   }
 
   bool loginAdmin(String password) {
-    if (password == adminPassword) {
+    if (password == 'admin1234') { // كلمة سر المشرف
       isAdminLoggedIn = true;
       SharedPreferences.getInstance().then((prefs) {
         prefs.setBool('isAdminLoggedIn', true);
@@ -159,51 +167,6 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setCustomGeneratedOtp(String phone, String otp) {
-    generatedDynamicOtp = otp;
-    notifyListeners();
-  }
-
-  Future<bool> sendOtpViaServerWhatsApp(String recipientPhone) async {
-    if (generatedDynamicOtp == null) return false;
-
-    String formattedPhone = recipientPhone.trim();
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '967${formattedPhone.substring(1)}';
-    } else if (!formattedPhone.startsWith('967')) {
-      formattedPhone = '967$formattedPhone';
-    }
-
-    final messageText =
-        '🌟 تطبيق تعز إكسبرس (Taiz Express) 🌟\n\n'
-        'أهلاً بك!\n'
-        'رمز التحقق الخاص بك هو: *$generatedDynamicOtp*\n\n'
-        'لا تشارك هذا الرمز مع أي شخص حفاظاً على أمان حسابك. 🚀';
-
-    const instanceId = 'YOUR_INSTANCE_ID';
-    const token = 'YOUR_API_TOKEN';
-
-    final url = Uri.parse('https://api.ultramsg.com/$instanceId/messages/chat');
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {'token': token, 'to': formattedPhone, 'body': messageText},
-      );
-
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        if (jsonResponse['sent'] == 'true' || jsonResponse['status'] == 'success') {
-          return true;
-        }
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
   bool verifyOtpAndLogin(String phone, String enteredOtp) {
     if (generatedDynamicOtp != null && enteredOtp == generatedDynamicOtp) {
       userProfile = {'phone': phone, 'name': '', 'city': currentCity, 'address': ''};
@@ -217,22 +180,15 @@ class AppState extends ChangeNotifier {
     if (userProfile != null) {
       userProfile!['name'] = name;
       userProfile!['address'] = address;
-      
       String phone = userProfile!['phone'] ?? '';
 
       try {
         await supabase.from('customers').upsert({
           'phone': phone,
           'name': name,
-          'city': address,
         }, onConflict: 'phone');
-
-        // طلب الأذونات فور حفظ الملف الشخصي وتحديد الموقع
-        await requestLocationAndNotificationPermissions();
-
-        debugPrint('✅ تم حفظ بيانات العميل في Supabase بنجاح');
       } catch (e) {
-        debugPrint('❌ خطأ في حفظ بيانات العميل: $e');
+        debugPrint('❌ خطأ في حفظ العميل: $e');
       }
 
       notifyListeners();
@@ -259,6 +215,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // 5. جلب المناديب بمطابقة جدول couriers في Supabase
   Future<void> fetchCouriersFromSupabase() async {
     try {
       final response = await supabase.from('couriers').select();
@@ -270,59 +227,8 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> addCourier(String name, String phone, String username, String password) async {
-    try {
-      final courierId = 'D-00${couriers.length + 1}';
-      await supabase.from('couriers').insert({
-        'id': courierId,
-        'delivery_man_id': courierId,
-        'username': username,
-        'password': password,
-        'name': name,
-        'phone': phone,
-        'status': 'available',
-        'is_logged_in': false,
-        'completed_orders': 0,
-      });
-      fetchCouriersFromSupabase();
-    } catch (e) {
-      debugPrint('خطأ في إضافة المندوب: $e');
-    }
-  }
-
-  bool loginCourier(String username, String password) {
-    final index = couriers.indexWhere((c) => c['username'] == username && c['password'] == password);
-    if (index != -1) {
-      couriers[index]['is_logged_in'] = true;
-      currentCourier = couriers[index];
-
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.setString('loggedCourierId', currentCourier!['id']?.toString() ?? currentCourier!['delivery_man_id'].toString());
-      });
-
-      notifyListeners();
-      return true;
-    }
-    return false;
-  }
-
-  void logoutCourier() {
-    if (currentCourier != null) {
-      final index = couriers.indexWhere((c) => c['delivery_man_id'] == currentCourier!['delivery_man_id'] || c['id'] == currentCourier!['id']);
-      if (index != -1) {
-        couriers[index]['is_logged_in'] = false;
-      }
-      currentCourier = null;
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.remove('loggedCourierId');
-      });
-      notifyListeners();
-    }
-  }
-
   final List<CartItemModel> _cartItems = [];
   List<CartItemModel> get cartItems => _cartItems;
-
   int get totalCartItemsCount => _cartItems.fold(0, (sum, item) => sum + item.quantity);
   double get totalAmount => _cartItems.fold(0.0, (sum, item) => sum + (item.price * item.quantity));
 
@@ -365,6 +271,7 @@ class AppState extends ChangeNotifier {
 
   List products = [];
 
+  // 5. جلب المنتجات بحسب حقول جدول products في Supabase
   Future<void> fetchProductsFromSupabase() async {
     try {
       final response = await supabase.from('products').select();
@@ -383,10 +290,10 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // 5. إضافة منتج جديد بمطابقة أعمدة جدول products
   Future<void> addProduct(ProductModel product) async {
     try {
       await supabase.from('products').insert({
-        'id': product.id,
         'name': product.name,
         'restaurant_name': product.restaurantName,
         'price': product.price,
@@ -394,9 +301,9 @@ class AppState extends ChangeNotifier {
         'available': product.available,
         'image_url': product.imageUrl,
       });
-      fetchProductsFromSupabase();
+      await fetchProductsFromSupabase();
     } catch (e) {
-      debugPrint('خطأ في إضافة المنتج: $e');
+      debugPrint('❌ خطأ في إضافة المنتج لـ Supabase: $e');
     }
   }
 
@@ -412,25 +319,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleProductAvailability(String id) async {
-    final index = products.indexWhere((p) => p.id == id);
-    if (index != -1) {
-      final p = products[index];
-      final newStatus = !p.available;
-      await supabase.from('products').update({'available': newStatus}).eq('id', id);
-      fetchProductsFromSupabase();
-    }
-  }
-
   List orders = [];
-  List chatMessages = [];
-  List notifications = [];
 
-  void addNotification(String title, String body) {
-    notifications.insert(0, {'title': title, 'body': body, 'time': DateTime.now()});
-    notifyListeners();
-  }
-
+  // 5. الاستماع للطلبات مع مطابقة أسماء حقول جدول orders
   void listenToOrdersRealtime() async {
     try {
       final initialData = await supabase.from('orders').select();
@@ -444,30 +335,11 @@ class AppState extends ChangeNotifier {
         debugPrint('⚠️ خطأ في الاستماع للطلبات: $error');
       });
     } catch (e) {
-      debugPrint('❌ خطأ في الاستماع للطلبات: $e');
+      debugPrint('❌ خطأ في جلب الطلبات: $e');
     }
   }
 
-  List getMessagesForOrder(String orderId, String targetChat) {
-    return chatMessages.where((msg) => msg.orderId == orderId && msg.targetChat == targetChat).toList();
-  }
-
-  void sendChatMessage(String orderId, String senderRole, String targetChat, String messageText) {
-    if (messageText.trim().isEmpty) return;
-
-    final newMsg = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      orderId: orderId,
-      senderRole: senderRole,
-      targetChat: targetChat,
-      message: messageText.trim(),
-      timestamp: DateTime.now(),
-    );
-
-    chatMessages.add(newMsg);
-    notifyListeners();
-  }
-
+  // 5. إنشاء طلب جديد بحسب حقول جدول orders
   Future<void> createOrder({
     required String customerName,
     required String phone,
@@ -476,20 +348,8 @@ class AppState extends ChangeNotifier {
     required double productsTotal,
   }) async {
     userProfile = {'phone': phone, 'name': customerName, 'city': currentCity, 'address': address};
-    final orderId = 'TX-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-
-    try {
-      await supabase.from('customers').upsert({
-        'phone': phone,
-        'name': customerName,
-        'city': address,
-      }, onConflict: 'phone');
-    } catch (e) {
-      debugPrint('خطأ في حفظ العميل: $e');
-    }
 
     final orderData = {
-      'id': orderId,
       'customer_name': customerName,
       'phone': phone,
       'address': address,
@@ -507,83 +367,23 @@ class AppState extends ChangeNotifier {
     try {
       await supabase.from('orders').insert(orderData);
       _cartItems.clear();
-      // إرسال إشعار تجريبي للعميل عند إنشاء الطلب
-      addNotification('تم إنشاء الطلب بنجاح', 'طلبك رقم #$orderId بانتظار تحديد السعر ⏳');
       notifyListeners();
     } catch (e) {
-      debugPrint('خطأ في إنشاء الطلب: $e');
+      debugPrint('❌ خطأ في إنشاء الطلب: $e');
     }
   }
 
-  Future<void> setOrderDeliveryFee(String orderId, double fee, String courierName) async {
-    try {
-      final order = orders.firstWhere((o) => o['id'].toString() == orderId, orElse: () => null);
-      double productsTotal = order != null ? double.tryParse(order['products_total'].toString()) ?? 0.0 : 0.0;
-      double totalPrice = productsTotal + fee;
-
-      await supabase.from('orders').update({
-        'delivery_fee': fee,
-        'total_price': totalPrice,
-        'assigned_courier': courierName.trim(),
-        'status': 'waitingCourierApproval',
-        'is_fee_sent': true,
-        'admin_message': 'تم تحديد رسوم التوصيل ($fee ر.ي) وإسناد الطلب للمندوب بنجاح ⏳',
-      }).eq('id', orderId);
-
-      // إرسال إشعار للعميل عند تحديد السعر وتحديث رسوم التوصيل
-      addNotification('تحديث الطلب #$orderId', 'تم تحديد رسوم التوصيل ($fee ر.ي). يرجى تأكيد الطلب! 🔔');
-    } catch (e) {
-      debugPrint('خطأ تحديث الرسوم: $e');
-    }
-  }
-
-  Future<void> customerConfirmOrder(String orderId) async {
+  Future<void> customerConfirmOrder(dynamic orderId) async {
     await supabase.from('orders').update({
       'status': 'waitingCourierApproval',
       'admin_message': 'تم تأكيد الطلب من قِبل العميل ⏳',
     }).eq('id', orderId);
   }
 
-  Future<void> customerCancelOrder(String orderId) async {
+  Future<void> customerCancelOrder(dynamic orderId) async {
     await supabase.from('orders').update({
       'status': 'cancelledByCustomer',
       'admin_message': 'تم إلغاء الطلب من قِبل العميل ❌',
     }).eq('id', orderId);
-  }
-
-  Future<void> courierRespondToOrder(String orderId, bool accepted) async {
-    final order = orders.firstWhere((o) => o['id'].toString() == orderId, orElse: () => null);
-    if (order != null) {
-      if (accepted) {
-        await supabase.from('orders').update({
-          'status': 'onTheWay',
-          'admin_message': 'المندوب قَبِل الطلب وهو في الطريق 🟢',
-        }).eq('id', orderId);
-        addNotification('طلبك في الطريق!', 'المندوب في طريقه إليك الآن 🛵');
-      } else {
-        await supabase.from('orders').update({
-          'status': 'rejectedByCourier',
-          'admin_message': '⚠️ المندوب رَفَض الطلب!',
-          'assigned_courier': 'لم يتم التعيين',
-          'is_fee_sent': false,
-        }).eq('id', orderId);
-      }
-    }
-  }
-
-  Future<void> courierUpdateArrival(String orderId) async {
-    await supabase.from('orders').update({
-      'status': 'arrived',
-      'admin_message': 'المندوب وصل لموقع العميل 📍',
-    }).eq('id', orderId);
-    addNotification('وصول المندوب', 'المندوب وصل إلى موقعك الآن! 📍');
-  }
-
-  Future<void> markOrderDelivered(String orderId) async {
-    await supabase.from('orders').update({
-      'status': 'delivered',
-      'admin_message': 'تم تسليم الطلب بنجاح ✅',
-    }).eq('id', orderId);
-    addNotification('تم التسليم', 'شكراً لاستخدامك تعز إكسبرس! تم تسليم طلبك بنجاح ✅');
   }
 }
