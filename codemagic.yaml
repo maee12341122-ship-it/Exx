@@ -6,12 +6,11 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Clean project
+      - name: Deep Clean and Get Dependencies
         script: |
           flutter clean
-      - name: Set up flutter package get
-        script: |
-          flutter packages pub get
+          rm -rf android/.gradle
+          flutter pub get
       - name: Build APK Release
         script: |
           flutter build apk --release
