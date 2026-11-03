@@ -1,11 +1,14 @@
 workflows:
-  flutter-workflow:
+  taiz-express-android-workflow:
     name: Taiz Express Android Workflow
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
     scripts:
+      - name: Clean project
+        script: |
+          flutter clean
       - name: Set up flutter package get
         script: |
           flutter packages pub get
