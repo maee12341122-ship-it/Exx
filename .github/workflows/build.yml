@@ -17,19 +17,8 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Clean and Recreate Android
-        run: |
-          flutter clean
-          rm -rf android
-          flutter create . --platforms=android --project-name=taiz_express
-          
-          # كتابة إعدادات الـ SDK مباشرة داخل ملف local.properties لضمان قراءتها من قبل Gradle الحديث
-          echo "flutter.sdk=$flutter_sdk" > android/local.properties
-          echo "flutter.minSdkVersion=21" >> android/local.properties
-          echo "flutter.targetSdkVersion=34" >> android/local.properties
-          echo "flutter.compileSdkVersion=34" >> android/local.properties
-
-          flutter pub get
+      - name: Get Dependencies
+        run: flutter pub get
 
       - name: Build Release APK
         run: flutter build apk --release
