@@ -17,6 +17,12 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Recreate Android Directory Cleanly
+        run: |
+          flutter clean
+          rm -rf android
+          flutter create . --platforms=android --project-name=taiz_express
+
       - name: Get Dependencies
         run: flutter pub get
 
