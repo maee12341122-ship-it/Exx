@@ -35,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // نافذة تأكيد الخروج بالثيم الأسود والذهبي الفاخر
+  // نافذة تأكيد الخروج بالثيم الأسود والذهبي الفاخر (مصححة برمجياً)
   void showExitConfirmationDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: const Color(0xFF1E1E1E),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.amber.withOpacity(0.3)),
+            side: BorderSide(color: Colors.amber.withOpacity(0.3)),
           ),
           title: Row(
             children: const [
