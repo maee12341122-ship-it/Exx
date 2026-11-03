@@ -49,6 +49,41 @@ class AppState extends ChangeNotifier {
     isDarkMode = !isDarkMode;
     notifyListeners();
   }
+  // --- إدارة رسائل الشات ودعم الطلبات ---
+  List getMessagesForOrder(String orderId, String targetChat) {
+    // تصفية وإرجاع الرسائل الخاصة بالطلب الحالي
+    return chatMessages.where((msg) => msg['order_id'].toString() == orderId.toString() && msg['target_chat'] == targetChat).toList();
+  }
+
+  Future<void> sendChatMessage({
+    required String orderId,
+    required String senderRole,
+    required String targetChat,
+    required String message,
+  }) async {
+    try {
+      final newMessage = {
+        'order_id': orderId,
+        'sender_role': senderRole,
+        'target_chat': targetChat,
+        'message': message,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      // إضافة الرسالة محلياً لتظهر فوراً
+      chatMessages.add(newMessage);
+      notifyListeners();
+
+      // محاولة حفظها في Supabase إن وجد الجدول، أو الاكتفاء بالتحديث المحلي
+      try {
+        await supabase.from('chat_messages').insert(newMessage);
+      } catch (e) {
+        debugPrint('⚠️ ملاحظة حول جدول الشات في سوبابيس: $e');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في إرسال رسالة الشات: $e');
+    }
+  }
 
   String currentCity = 'تعز';
   void setCity(String city) {
