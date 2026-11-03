@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/app_state.dart';
 import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // يمكنك استبدال البيانات أدناه برابط ومفتاح مشروعك في Supabase إذا لزم الأمر
-  // try {
-  //   await Supabase.initialize(
-  //     url: 'YOUR_SUPABASE_URL',
-  //     anonKey: 'YOUR_SUPABASE_ANON_KEY',
-  //   );
-  // } catch (e) {
-  //   debugPrint('خطأ في تهيئة Supabase: $e');
-  // }
+
+  // تهيئة Supabase بمفاتيح المشروع الخاصة بك
+  try {
+    await Supabase.initialize(
+      url: 'https://pzokmpthkpuofrntufyp.supabase.co',
+      anonKey: 'Sb_publishable_uI01Ippgs8yXi9k18JO8DQ_Zm74RqQf',
+    );
+  } catch (e) {
+    debugPrint('⚠️ خطأ في اتصال Supabase: $e');
+  }
 
   runApp(
     MultiProvider(
@@ -49,12 +50,12 @@ class FastApp extends StatelessWidget {
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF121212), // أسود داكن لكل التطبيق
+        scaffoldBackgroundColor: const Color(0xFF121212),
         primaryColor: Colors.amber,
         colorScheme: const ColorScheme.dark(
           primary: Colors.amber,
           secondary: Colors.amber,
-          surface: Color(0xFF1E1E1E), // أسود رمادي للكروت
+          surface: Color(0xFF1E1E1E),
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1E1E1E),
