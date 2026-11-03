@@ -2,4 +2,5 @@ package com.example.taiz_express
 
 import io.flutter.embedding.android.FlutterActivity
 
-class MainActivity : FlutterActivity()
+class MainActivity : FlutterActivity() {
+}
