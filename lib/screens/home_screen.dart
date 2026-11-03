@@ -35,14 +35,13 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // نافذة تأكيد الخروج بالثيم الأسود والذهبي الفاخر (مصححة برمجياً)
-  void showExitConfirmationDialog(BuildContext context) {
+  void showExitConfirmationDialog(BuildContext context, Color cardBg, Color textColor) {
     showDialog(
       context: context,
       builder: (context) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
+          backgroundColor: cardBg,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(color: Colors.amber.withOpacity(0.3)),
@@ -51,12 +50,12 @@ class _HomeScreenState extends State<HomeScreen> {
             children: const [
               Icon(Icons.exit_to_app, color: Colors.amber),
               SizedBox(width: 10),
-              Text('تأكيد الخروج', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('تأكيد الخروج', style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
-          content: const Text(
+          content: Text(
             'هل أنت متأكد أنك تريد الخروج من تطبيق FAST؟',
-            style: TextStyle(color: Colors.grey, fontSize: 14),
+            style: TextStyle(color: textColor, fontSize: 14),
           ),
           actions: [
             ElevatedButton(
@@ -76,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _checkAndShowPricingDialog(BuildContext context, AppState appState) {
+  void _checkAndShowPricingDialog(BuildContext context, AppState appState, Color cardBg, Color textColor) {
     if (appState.userProfile == null || appState.isAdminLoggedIn) return;
 
     final customerPhone = appState.userProfile!['phone'];
@@ -94,12 +93,12 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context) => Directionality(
               textDirection: TextDirection.rtl,
               child: AlertDialog(
-                backgroundColor: const Color(0xFF1E1E1E),
+                backgroundColor: cardBg,
                 title: Row(
                   children: const [
                     Icon(Icons.notifications_active, color: Colors.amber),
                     SizedBox(width: 10),
-                    Text('تسعيرة جديدة من المشرف', style: TextStyle(color: Colors.white, fontSize: 16)),
+                    Text('تسعيرة جديدة من المشرف', style: TextStyle(color: Colors.amber, fontSize: 16)),
                   ],
                 ),
                 content: Column(
@@ -108,10 +107,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Text('طلب #${order['id']}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    Text('• رسوم التوصيل: (${order['deliveryFee']} ر.ي)', style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                    Text('• الإجمالي الكلي: ${order['totalPrice']} ر.ي', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text('• رسوم التوصيل: (${order['delivery_fee']} ر.ي)', style: TextStyle(color: textColor, fontSize: 14)),
+                    Text('• الإجمالي الكلي: ${order['total_price']} ر.ي', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 12),
-                    const Text('هل توافق على رسوم التوصيل وتأكيد الطلب ليرسل للمندوب؟', style: TextStyle(color: Colors.white, fontSize: 13)),
+                    Text('هل توافق على رسوم التوصيل وتأكيد الطلب ليرسل للمندوب؟', style: TextStyle(color: textColor, fontSize: 13)),
                   ],
                 ),
                 actions: [
@@ -150,11 +149,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
 
-    _checkAndShowPricingDialog(context, appState);
+    // تفعيل الألوان الديناميكية للوضع الفاتح والداكن
+    final themeBg = appState.isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F5F5);
+    final cardBg = appState.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = appState.isDarkMode ? Colors.white : Colors.black87;
 
-    const themeBg = Color(0xFF121212);
-    const cardBg = Color(0xFF1E1E1E);
-    const textColor = Colors.white;
+    _checkAndShowPricingDialog(context, appState, cardBg, textColor);
 
     final List<Widget> pages = [
       _buildShopTab(appState, cardBg, textColor),
@@ -167,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
       canPop: false,
       onPopInvoked: (didPop) {
         if (didPop) return;
-        showExitConfirmationDialog(context);
+        showExitConfirmationDialog(context, cardBg, textColor);
       },
       child: Directionality(
         textDirection: TextDirection.rtl,
@@ -185,9 +185,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Text(
+                Text(
                   'FAST – تعز',
-                  style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Colors.amber[700], fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -211,11 +211,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       context: context,
                       builder: (context) => AlertDialog(
                         backgroundColor: cardBg,
-                        title: const Text('تسجيل دخول المشرف', style: TextStyle(color: Colors.white, fontSize: 14)),
+                        title: Text('تسجيل دخول المشرف', style: TextStyle(color: textColor, fontSize: 14)),
                         content: TextField(
                           controller: passwordController,
                           obscureText: true,
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          style: TextStyle(color: textColor, fontSize: 14),
                           decoration: const InputDecoration(
                             hintText: 'أدخل كلمة السر الخاصة بك',
                             hintStyle: TextStyle(color: Colors.grey),
@@ -337,7 +337,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       labelText: 'اكتب تفاصيل أو اسم الطلب',
                       labelStyle: const TextStyle(color: Colors.grey),
                       filled: true,
-                      fillColor: const Color(0xFF121212),
+                      fillColor: appState.isDarkMode ? const Color(0xFF121212) : Colors.grey[100],
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
@@ -350,7 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       labelText: 'السعر التقديري (ر.ي)',
                       labelStyle: const TextStyle(color: Colors.grey),
                       filled: true,
-                      fillColor: const Color(0xFF121212),
+                      fillColor: appState.isDarkMode ? const Color(0xFF121212) : Colors.grey[100],
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
@@ -424,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   appState.isStoreOpen
                       ? '🟢 نحن مفتوحون الآن (الدوام من ${appState.startHour}:00 ص إلى ${appState.endHour}:00 م)'
                       : '🔴 التطبيق مغلق حالياً (يبدأ الدوام الساعة ${appState.startHour}:00 صباحاً)',
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -471,7 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: ListTile(
                         title: Text(product.name, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
                         subtitle: Text(
-                          '${product.restaurantName} - ${product.price} ر.ي / ${product.unit} (${product.category})',
+                          '${product.restaurantName} - ${product.price} ر.ي / (${product.category})',
                           style: const TextStyle(color: Colors.grey, fontSize: 13),
                         ),
                         trailing: qtyInCart == 0
@@ -611,7 +611,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('إجمالي السلة المجمعة:', style: TextStyle(color: Colors.white)),
+                Text('إجمالي السلة المجمعة:', style: TextStyle(color: textColor)),
                 Text('${appState.totalAmount} ر.ي', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
               ],
             ),
@@ -684,7 +684,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => ChatScreen(
-                              orderId: order['id'],
+                              orderId: order['id'].toString(),
                               userRole: 'customer',
                               targetChat: 'admin_customer',
                             ),
@@ -696,12 +696,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Text('الحالة: $arabicStatus', style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 5),
-                Text('العنوان: ${order['address']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                Text('المنتجات: ${order['itemsDescription']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                Text('سعر المنتجات: ${order['productsTotal']} ر.ي', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                Text('رسوم التوصيل: ${order['deliveryFee']} ر.ي', style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold)),
-                Text('الإجمالي الكلي: ${order['totalPrice']} ر.ي', style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold)),
-                Text('المندوب: ${order['assignedCourier']}', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text('العنوان: ${order['address']}', style: TextStyle(color: textColor, fontSize: 13)),
+                Text('المنتجات: ${order['items_description']}', style: TextStyle(color: textColor, fontSize: 13)),
+                Text('سعر المنتجات: ${order['products_total']} ر.ي', style: TextStyle(color: textColor, fontSize: 13)),
+                Text('رسوم التوصيل: ${order['delivery_fee']} ر.ي', style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                Text('الإجمالي الكلي: ${order['total_price']} ر.ي', style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold)),
+                Text('المندوب: ${order['assigned_courier']}', style: TextStyle(color: textColor, fontSize: 13)),
               ],
             ),
           ),
@@ -827,10 +827,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         }),
+        // 4. مشاركة التطبيق باستخدام Share Plus لنظام التشغيل
         _buildProfileItem(Icons.share, 'مشاركة التطبيق مع الأصدقاء', cardBg, textColor, () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم نسخ رابط تطبيق FAST للمشاركة! 🚀')),
-          );
+          appState.shareApp();
         }),
         _buildProfileItem(Icons.help_outline, 'مركز المساعدة والأسئلة الشائعة', cardBg, textColor, () {
           showDialog(
@@ -848,6 +847,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         }),
+        // 3. إزالة الرقم الشخصي واستبداله برقم الدعم العام الموحد
         _buildProfileItem(Icons.phone, 'اتصل بخدمة العملاء والدعم', cardBg, textColor, () {
           showDialog(
             context: context,
@@ -856,10 +856,10 @@ class _HomeScreenState extends State<HomeScreen> {
               title: Text('خدمة العملاء', style: TextStyle(color: textColor)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   ListTile(
-                    leading: Icon(Icons.phone, color: Colors.green),
-                    title: Text('اتصال مباشر: 775145534', style: TextStyle(color: Colors.white)),
+                    leading: const Icon(Icons.phone, color: Colors.green),
+                    title: Text('رقم الدعم الفني: ${appState.customerSupportPhone}', style: TextStyle(color: textColor)),
                   ),
                 ],
               ),
