@@ -1,54 +1,90 @@
+
 name: Build Flutter APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # 1. تحميل المشروع
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
+      # 2. تثبيت Java 17
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: zulu
           java-version: '17'
 
-      - name: Recreate Android Directory & Configure SDK
+      # 3. تثبيت Flutter Stable
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # 4. إنشاء مجلد Android فقط إذا لم يكن موجوداً
+      - name: Prepare Android Project
+        shell: bash
         run: |
-          flutter clean
-          rm -rf android
-          flutter create . --platforms=android --project-name=taiz_express
-          
-          # ضبط قيم compileSdk و minSdkVersion في ملف الإعدادات الحديث لضمان توافق الحزم
-          if [ -f "android/app/build.gradle.kts" ]; then
-            sed -i 's/compileSdk = .*/compileSdk = 34/g' android/app/build.gradle.kts
-            sed -i 's/minSdk = .*/minSdk = 21/g' android/app/build.gradle.kts
-            sed -i 's/targetSdk = .*/targetSdk = 34/g' android/app/build.gradle.kts
-          fi
-          if [ -f "android/app/build.gradle" ]; then
-            sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
-            sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle
-            sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' android/app/build.gradle
+          if [ ! -d android ]; then
+            flutter create . --platforms=android --project-name=taiz_express
           fi
 
+          # ضبط إصدارات SDK لتتوافق مع إصدار Flutter الحالي
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i -E \
+              -e 's/^[[:space:]]*compileSdk = .*/    compileSdk = flutter.compileSdkVersion/' \
+              -e 's/^[[:space:]]*minSdk = .*/    minSdk = flutter.minSdkVersion/' \
+              -e 's/^[[:space:]]*targetSdk = .*/    targetSdk = flutter.targetSdkVersion/' \
+              android/app/build.gradle.kts
+
+          elif [ -f android/app/build.gradle ]; then
+            sed -i -E \
+              -e 's/^[[:space:]]*compileSdkVersion .*/    compileSdkVersion flutter.compileSdkVersion/' \
+              -e 's/^[[:space:]]*minSdkVersion .*/    minSdkVersion flutter.minSdkVersion/' \
+              -e 's/^[[:space:]]*targetSdkVersion .*/    targetSdkVersion flutter.targetSdkVersion/' \
+              android/app/build.gradle
+          else
+            echo "ERROR: Android Gradle app file not found!"
+            exit 1
+          fi
+
+      # 5. فحص بيئة البناء
+      - name: Check Flutter and Java
+        run: |
+          flutter --version
+          java -version
+          flutter doctor -v
+
+      # 6. تنظيف الملفات المؤقتة
+      - name: Clean Project
+        run: flutter clean
+
+      # 7. تحميل المكتبات
       - name: Get Dependencies
         run: flutter pub get
 
+      # 8. بناء APK
       - name: Build Release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --verbose
 
+      # 9. رفع ملف APK
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
+          name: Taiz-Express-Release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
